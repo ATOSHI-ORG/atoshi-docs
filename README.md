@@ -33,6 +33,7 @@ If you are looking for:
 - [Bridge — cross-layer asset movement](./modules/06-bridge.md)
 - [Privacy — shielded transactions on L2](./modules/07-privacy.md)
 - [Staking — validator economics](./modules/08-staking.md)
+- [Governance — on-chain proposals with case studies](./modules/09-governance.md)
 
 ### Economics
 - [Supply and circulation](./economics/01-supply.md)
