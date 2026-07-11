@@ -8,10 +8,16 @@ Atoshi is a **dual-layer public blockchain** designed around a simple thesis:
 
 Concretely, Atoshi consists of:
 
-- **L1 (chain id 88288)** — a Cosmos SDK chain with a built-in EVM execution layer (via Ethermint). It runs the core economic modules: token release, price oracle, energy accounting, and the native bridge contract.
+- **L1** — a Cosmos SDK chain with a built-in EVM execution layer (via Ethermint). Mainnet chain id `atoshi_88188-1` (EVM `88188`); testnet `atoshi_88288-1` (EVM `88288`). It runs the core economic modules: token release, price oracle, energy accounting, and the native bridge contract.
 - **L2 (chain id 67890)** — a Polygon CDK zkEVM rollup that hosts the privacy pool and high-throughput smart contracts. L2 inherits L1's security via zero-knowledge proofs.
 
 Both layers settle in **ATOS**, the native token. ATOS is bridgeable in both directions and is the only fee asset.
+
+![ATOSHI ecosystem architecture — one chain, one account, one wallet](assets/whitepaper/ecosystem-overview.png)
+
+> The diagram above is the **ecosystem** view (products settle on the ATOSHI Chain). These docs cover the **L1 chain** itself. The consumer-facing "Power-of-Device (POD)" mobile mining below is an **application-layer** engagement system that mints the pre-mainnet ERC-20 and feeds the migration airdrop — it is **not** the L1 consensus, which is CometBFT Proof-of-Stake.
+
+![Power-of-Device (POD) app-layer engagement-mining flow](assets/whitepaper/pod-consensus-flow.png)
 
 ## What problem we solve
 
@@ -49,16 +55,16 @@ L1 stays small, opinionated, and modular; L2 absorbs the long tail of programmab
 |---|---|
 | Native token | ATOS |
 | Atomic unit | 1 ATOS = 10^18 aatos (same precision as ETH) |
-| L1 block time | ~5 seconds |
+| L1 block time | ~5 s design (currently ~3.5 s observed) |
 | L2 block time | ~2 seconds |
-| L1 chain id | 88288 |
+| L1 chain id | `atoshi_88188-1` mainnet (EVM 88188) / `atoshi_88288-1` testnet (EVM 88288) |
 | L2 chain id | 67890 |
 | Bech32 prefix | `atoshi` |
 | Key scheme | ethsecp256k1 (Ethereum-compatible) |
 | Hashing for tx signing | keccak256 |
-| Halving cycle | every 1,051,200 blocks (~4 years at 5s blocks) |
-| Genesis circulating | 1.46 B ATOS (immediate distribution) |
-| Locked initial supply | 5.84 B ATOS (released over miner + project schedule) |
+| Total supply | 10 T ATOS (Miner 1 T / Project 8.9 T / Migration 100 B) |
+| Halving cycle | every 25,228,800 blocks (~4 years at the 5s design) |
+| Day-one circulating | 100 B ATOS (Migration Pool seeds the float) |
 
 ## Core design choices
 
@@ -130,4 +136,4 @@ Each module chapter follows the same template: purpose → state → messages �
 
 ---
 
-*Last reviewed: 2026-05-21*
+*Last reviewed: 2026-07-12*

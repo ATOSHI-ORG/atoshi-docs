@@ -17,6 +17,10 @@ Atoshi's flavor adds two specifics:
 - **Hybrid asset model.** Notes can hold native L2 wATOS or a curated whitelist of L2 ERC20 tokens (governed by `TokenRegistry`). Cross-asset shielded transfer is supported but each asset has its own sub-tree.
 - **Energy-settled gas.** The `EnergySettlement` contract on L2 talks to the L1 `x/energy` module via meta-transaction so that committed L1 holders pay zero gas for privacy operations on L2.
 
+![Dual-mode transaction computing layer — transparent (default) vs private (user-activated)](../assets/whitepaper/privacy-dual-mode.png)
+
+> The diagram frames privacy as a per-transaction user toggle. On Atoshi, the transparent mode is the ordinary L1/L2 ledger; the private mode is the L2 shield pool described below. The zk-SNARK / stealth-address / commitment techniques it references map to the concrete circuits in the [Contracts](#contracts) and [Circuits](#circuits) sections.
+
 ## Three operations
 
 ### 1. Shield (deposit)

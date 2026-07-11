@@ -8,7 +8,7 @@ There are three reservoirs of ATOS at genesis:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Total supply (10 B ATOS, hard cap)                          │
+│  Total supply (10 T ATOS, hard cap)                          │
 │                                                              │
 │  ┌──────────────┬──────────────────┬────────────────────┐   │
 │  │ Migration    │ Miner pool       │ Project pool       │   │
@@ -22,6 +22,8 @@ There are three reservoirs of ATOS at genesis:
 │   Merkle proof     unlock streak         unlock streak       │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+![ATOS supply allocation across the three pools at mainnet genesis](../assets/whitepaper/supply-allocation.png)
 
 Three paths move ATOS from a reservoir into circulation:
 
@@ -93,7 +95,7 @@ period         = floor((current_height - genesis_height) / halving_interval_bloc
 current_reward = initial_block_reward / 2^period
 ```
 
-Default params: `initial_block_reward = 19,819 ATOS`, `halving_interval_blocks = 1,051,200` (~4 years at 5s blocks).
+Default params: `initial_block_reward = 19,819 ATOS`, `halving_interval_blocks = 25,228,800` (~4 years at the 5-second design block time). The reward is drawn from the 1-trillion Miner Pool; cycle 0 emits ~500 B (half the pool) and the geometric series converges to 1 T.
 
 | Period | Reward per block |
 |---|---|
@@ -102,7 +104,11 @@ Default params: `initial_block_reward = 19,819 ATOS`, `halving_interval_blocks =
 | 2 (year 8–12) | 4,954.75 |
 | 3 (year 12–16) | 2,477.375 |
 
-Minting is capped by the 10 B total supply hard cap — once cumulative emission would exceed the cap, the chain caps it to the remainder.
+Minting is bounded by the 1-trillion Miner Pool (10% of the 10 T total supply) — once cumulative emission would exceed the pool, the chain caps it to the remainder.
+
+> The live chains currently run faster than the 5-second design (~3.5 s), so a halving epoch elapses in ~2.8 years at present; per-cycle ATOS amounts are unaffected (block-count based). See [Release schedule](../economics/02-release-schedule.md#block-reward-halving-table) for the block-time note.
+
+![Bitcoin-style halving emission of the 1-trillion Miner Pool](../assets/whitepaper/halving-emission.png)
 
 ### Split: 20% immediate / 80% locked
 
@@ -126,7 +132,7 @@ The most distinctive piece of the module.
 
 ### Tier definitions
 
-Four tiers indexed 0–3, parameterized by `price_base` and `tier_multiplier`:
+Tiers are an **unbounded** ladder indexed 0…n (`Tₙ = price_base × tier_multiplier^n`); the first four are shown for illustration:
 
 ```
 threshold_T0 = price_base                          (e.g. $0.15)
@@ -137,6 +143,8 @@ threshold_T3 = price_base × tier_multiplier^3      (e.g. $0.19965)
 
 Similarly for `volume_base × tier_multiplier^n`. Both price AND volume must clear the tier's threshold.
 
+![Conditional token release with escalating price/volume tiers](../assets/whitepaper/conditional-release.png)
+
 ### The streak engine
 
 Every `price_check_epoch_blocks` (default ~24h worth of blocks), the EndBlocker reads the TWAP price and 24h volume from `x/oracle`, then:
@@ -146,22 +154,24 @@ Every `price_check_epoch_blocks` (default ~24h worth of blocks), the EndBlocker 
    - **Equal**: `consecutive_days += 1`
    - **Higher**: `consecutive_days = 1`, `current_tier = new`
    - **Lower**: `consecutive_days = 0`, `current_tier = new`. Streak broken.
-3. **If `consecutive_days == consecutive_days_required`** (default 14): trigger a release.
+3. **If `consecutive_days == consecutive_days_required`** (default 30): trigger a release.
 
 ### Release event
 
-A trigger releases `release_percentage_bps` (default 100, i.e. 1%) of *circulating supply* from each pool:
+A trigger releases `release_percentage_bps` (default 500, i.e. 5%) of *circulating supply*, split across the two pools:
 
 - From miner pool: `miner_release_share_bps × release` (default 5000 = 50%) → distributed across all validators' `MinerLockedBalance.claimable_amount` proportional to their current `locked_amount`.
 - From project pool: `project_release_share_bps × release` (default 5000) → sent to the `project_treasury_address`, claimable via `MsgClaimProjectTreasuryReward`.
 
-After releasing, `consecutive_days` does NOT reset. The next release happens after another `consecutive_days_required` epochs (so on a 14-day streak: release on day 14, then day 28, then 42, ...).
+After releasing, `consecutive_days` does NOT reset. The next release happens after another `consecutive_days_required` epochs (so at 30: release on epoch 30, then 60, then 90, ...).
 
 ### Why tier-based
 
 A fixed emission schedule disconnects supply from market health. The threshold-and-streak design avoids dumping supply on a brief price spike — only *sustained* presence triggers a release. Bear markets pause releases entirely; the locked stash waits for renewed strength.
 
 ## Messages
+
+![Token migration from ERC-20 genesis to the native chain at 1:100](../assets/whitepaper/token-migration.png)
 
 ### `MsgClaimMigrationTokens`
 
@@ -216,18 +226,18 @@ Standard gov-only update. Mutating `migration_merkle_root` is allowed but requir
 
 | Name | Default | Notes |
 |---|---|---|
-| `miner_pool_total` | 1.0 B ATOS (10%) | Hard cap |
-| `project_pool_total` | 8.9 B ATOS (89%) | Hard cap |
-| `migration_pool_total` | 0.1 B ATOS (1%) | Hard cap |
+| `miner_pool_total` | 1 T ATOS (10%) | Hard cap (`1×10^30` aatos) |
+| `project_pool_total` | 8.9 T ATOS (89%) | Hard cap (`8.9×10^30` aatos) |
+| `migration_pool_total` | 100 B ATOS (1%) | Hard cap (`1×10^29` aatos) |
 | `immediate_reward_bps` | 2000 (20%) | Must sum to 10000 with locked |
 | `locked_reward_bps` | 8000 (80%) | |
-| `halving_interval_blocks` | 1,051,200 (~4yr at 5s) | |
+| `halving_interval_blocks` | 25,228,800 (~4yr at 5s design) | |
 | `initial_block_reward` | 19,819 ATOS | |
 | `price_base` | 0.15 USD | T0 threshold |
 | `volume_base` | 150,000 USD | T0 volume threshold |
 | `tier_multiplier` | 1.1 | Per-tier factor |
-| `consecutive_days_required` | 14 | Streak to unlock |
-| `release_percentage_bps` | 100 (1%) | Of circulating supply per event |
+| `consecutive_days_required` | 30 | Streak (epochs) to unlock |
+| `release_percentage_bps` | 500 (5%) | Of circulating supply per event |
 | `miner_release_share_bps` | 5000 | Split of release into miner pool |
 | `project_release_share_bps` | 5000 | Split into project pool |
 | `project_treasury_address` | (governance-set) | Multisig recommended |
@@ -274,4 +284,4 @@ Other Cosmos chains use `x/mint` to inflate continuously. Atoshi uses fixed bloc
 
 ---
 
-*Last reviewed: 2026-05-21*
+*Last reviewed: 2026-07-12*

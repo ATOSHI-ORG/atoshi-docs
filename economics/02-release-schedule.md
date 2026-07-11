@@ -18,54 +18,67 @@ these two engines.
 
 ## Block reward: halving table
 
-Per-block reward is deterministic by block height. Default params:
+Per-block reward is deterministic by block height. Default params
+(source of truth: `x/tokenomics/types/helpers.go`, `DefaultParams`):
 
 | Param | Value |
 |---|---|
 | `initial_block_reward` | 19,819 × 10^18 aatos (= 19,819 ATOS) |
-| `halving_interval_blocks` | 1,051,200 blocks |
-| Block time | ~3 seconds (testnet observed; mainnet expected similar) |
-| Implied period | ~36 days per halving epoch at 3 seconds/block |
+| `halving_interval_blocks` | 25,228,800 blocks |
+| Block time (design) | 5 seconds |
+| Blocks per year | 6,307,200 (= 31,536,000 s ÷ 5 s) |
+| Implied halving period | 25,228,800 ÷ 6,307,200 = **~4.0 years** |
 
-Wait — `halving_interval_blocks = 1,051,200` ≠ 4 years at 3 seconds.
-At 3-second block time, 1,051,200 × 3 = 3,153,600 seconds = **36.5 days**,
-not 4 years. The original design assumed 5-second blocks (the historical
-Cosmos default), which would give ~60 days.
+> **Design vs. observed block time.** `halving_interval_blocks`,
+> `price_check_epoch_blocks` (17,280 = "once a day"), and the "~4-year"
+> and "30-day" figures throughout this chapter all assume the **5-second**
+> design target. As of 2026-07, the live chains commit blocks faster —
+> ~3.5 s on mainnet (`atoshi_88188-1`) and ~3.4 s on testnet
+> (`atoshi_88288-1`) — so at the current rate a halving epoch elapses in
+> ~2.8 years and the "daily" price-check epoch fires roughly every 16.8 h.
+> The per-cycle **ATOS amounts are unaffected** (they are block-count
+> based, so cycle 0 still emits ~500 B). Only wall-clock durations move.
+> The plan is to bring `timeout_commit` back to the 5-second target so the
+> block-count parameters map to their intended calendar semantics;
+> alternatively governance can re-tune the block-count params to the
+> observed rate. Numbers below use the 5-second design basis.
 
-This is governance-tunable. If mainnet block time stabilizes near 3 seconds,
-`halving_interval_blocks` should be re-tuned (proposed value: 42,048,000
-for a 4-year halving at 3-second blocks). Below we assume the original
-4-year intent for compatibility with prior public materials.
+The block reward is drawn from the **Miner Pool** (1 trillion ATOS, 10% of
+the fixed 10-trillion supply). Emission is Bitcoin-style: each ~4-year
+cycle emits exactly half of the previous cycle, so the series is an
+infinite geometric sum that converges to — but never exceeds — the
+1-trillion pool cap.
 
-### Reward per period (assuming 4-year halving epoch)
+### Reward per period
 
-| Period | Years | Reward / block | Total ATOS minted (this period) |
-|---|---|---|---|
-| 0 | 0–4 | 19,819 | ~2,083,000,000 ATOS |
-| 1 | 4–8 | 9,909.5 | ~1,041,500,000 |
-| 2 | 8–12 | 4,954.75 | ~520,750,000 |
-| 3 | 12–16 | 2,477.375 | ~260,375,000 |
-| 4 | 16–20 | 1,238.6875 | ~130,187,500 |
-| ... | ... | ... | ... |
+| Cycle | Years | Reward / block | Minted this cycle | Cumulative | % of Miner Pool |
+|---|---|---|---|---|---|
+| 0 | 0–4 | 19,819 | ~500 B ATOS | 500 B | 50.00% |
+| 1 | 4–8 | 9,909.5 | ~250 B | 750 B | 75.00% |
+| 2 | 8–12 | 4,954.75 | ~125 B | 875 B | 87.50% |
+| 3 | 12–16 | 2,477.375 | ~62.5 B | 937.5 B | 93.75% |
+| 4 | 16–20 | 1,238.6875 | ~31.25 B | 968.75 B | 96.88% |
+| ... | ... | ... | ... | → 1 T | → 100% |
 
-Cumulative emission converges to ~4.16 B ATOS (= initial × 2). Combined
-with genesis circulating (~1.46 B), this caps total emission via block
-reward at ~5.62 B, well below the 10 B hard cap. The remaining ~4.4 B
-flows through tier releases.
+Cycle 0 mints `19,819 × 25,228,800 ≈ 499.96 B ATOS` — half the Miner Pool.
+The cumulative series converges to the full **1 trillion ATOS** Miner Pool
+without ever depleting it, so validators stay incentivised for decades
+while new issuance trends toward zero.
+
+![Bitcoin-style halving emission of the 1-trillion Miner Pool](../assets/whitepaper/halving-emission.png)
 
 ### Per-block split: 20% immediate + 80% locked
 
-Of the 19,819 ATOS minted each block:
+Of the 19,819 ATOS minted each block (`immediate_reward_bps = 2000`,
+`locked_reward_bps = 8000`):
 
-- **3,963.8 ATOS** (20%) → proposer's withdraw address through `x/distribution` — immediately spendable
-- **15,855.2 ATOS** (80%) → proposer's `MinerLockedBalance.locked_amount` — pooled until tier release
+- **3,963.8 ATOS** (20%) → fee collector, then paid via `x/distribution` (less the 2% community tax) to validators + delegators — immediately spendable
+- **15,855.2 ATOS** (80%) → validators' `MinerLockedBalance.locked_amount` by voting power — pooled until a conditional tier release fires; **not** paid to delegators
 
-So daily, at 3-second blocks (= 28,800 blocks):
+So daily, at 5-second blocks (= 17,280 blocks/day):
 
-- Immediate distribution: 28,800 × 3,963.8 = ~114.2 M ATOS / day (across all validators by stake share)
-- Locked accumulation: 28,800 × 15,855.2 = ~456.6 M ATOS / day
-
-(These numbers assume mainnet block time matches testnet. Real mainnet may differ.)
+- Immediate distribution: 17,280 × 3,963.8 ≈ **68.5 M ATOS / day** (across all validators by stake share)
+- Locked accumulation: 17,280 × 15,855.2 ≈ **274.0 M ATOS / day**
 
 ## Tier release: price/volume thresholds
 
@@ -91,6 +104,8 @@ So:
 To be "at tier N", BOTH price AND volume from `x/oracle` must clear
 tier-N's threshold simultaneously. The oracle's reported TWAP price and
 24h volume are compared per epoch.
+
+![Conditional token release with escalating price/volume tiers](../assets/whitepaper/conditional-release.png)
 
 ### Streak engine
 
@@ -126,12 +141,13 @@ Of that 5%:
 - 50% from miner pool (50% × 5% = 2.5% of circulating)
 - 50% from project pool
 
-So if circulating supply at trigger time is 2 B ATOS:
+So if circulating supply at trigger time is 200 B ATOS (day-one float is
+the 100 B Migration Pool plus accumulated immediate block rewards):
 
 | Pool | Released this event |
 |---|---|
-| Miner | 50 M ATOS |
-| Project treasury | 50 M ATOS |
+| Miner | 5 B ATOS |
+| Project treasury | 5 B ATOS |
 
 Released miner ATOS goes into validators' `claimable_amount` proportional
 to their `locked_amount` share. Project ATOS goes to the
@@ -141,24 +157,24 @@ to their `locked_amount` share. Project ATOS goes to the
 
 Suppose:
 
-- Circulating at start of period: 2 B ATOS
-- Price stays at 0.17 USD (above T1's 0.165) for 30 days
-- Volume sustained above 165k USD/24h for 30 days
+- Circulating at start of period: 200 B ATOS
+- Price stays at 0.17 USD (above T1's 0.165) for 30 epochs
+- Volume sustained above 165k USD/24h for 30 epochs
 
 Day 30 (first release):
-- 5% × 2 B = 100 M ATOS released
-- 50 M to miner pool → distributed to validators
-- 50 M to project pool → in treasury
+- 5% × 200 B = 10 B ATOS released
+- 5 B to miner pool → distributed to validators
+- 5 B to project pool → in treasury
 
-Circulating after release: ~2.05 B ATOS (the released amount is now
-spendable). Tier release of NEXT 5% would happen on day 60.
+Circulating after release: ~210 B ATOS (the released amount is now
+spendable). The NEXT 5% would fire another 30 epochs later.
 
-Day 60 (second release, assuming streak sustained):
-- 5% × 2.05 B = 102.5 M ATOS
+Second release (assuming streak sustained):
+- 5% × 210 B = 10.5 B ATOS
 
 And so on. Each release is 5% of the *current* circulating, not the
-genesis circulating — so the absolute amount slowly grows as cumulative
-issuance compounds.
+day-one float — so the absolute amount grows as cumulative issuance
+compounds, always bounded by the remaining Miner + Project pools.
 
 ### What if price drops mid-streak
 
@@ -188,9 +204,10 @@ T0 progress.
 
 ## Migration claims
 
-A one-shot supply addition. Total cap: `migration_pool_total = 100,000,000 ATOS`
-(1% of total supply, 10x the genesis figure given in supply.md — confirm
-with deployment if you need exact number).
+A one-shot supply addition. Total cap: `migration_pool_total =
+100,000,000,000 ATOS` (100 billion, = 1% of the 10-trillion total supply).
+This pool seeds day-one circulating supply and honours every ERC-20 /
+in-app balance at the 1:100 mapping.
 
 Holders of the legacy ETH ATOS token claim via Merkle proof against the
 genesis-set `migration_merkle_root`. Claims are bounded by:
@@ -203,32 +220,33 @@ After the window closes, unclaimed amount sweeps into the project pool.
 
 ## Cumulative supply forecast
 
-Stitching the pieces together. Assumes:
-- Block reward: ~2.08 B in period 0 (years 0-4 if 4-year halving)
-- Tier releases: 5%/event × variable number of events
-- Migration: 100 M one-shot, mostly claimed in year 1
+Split the curve into a deterministic part (price-independent) and an
+endogenous part (demand-driven).
 
-A best-case bullish scenario (sustained T2-T3 for years 1-3):
+**Deterministic part** — Migration Pool + immediate block rewards, over
+cycle 0 (years 0–4 on the 5-second design basis):
 
-| Year | Block reward | Tier release | Cumulative emission | Cumulative supply |
-|---|---|---|---|---|
-| 0 (genesis) | — | — | 0 | 1.46 B |
-| 1 | 521 M | 150 M (3 events × ~50 M) | 671 M | 2.13 B |
-| 2 | 521 M | 200 M (4 events) | 1.39 B | 2.85 B |
-| 3 | 521 M | 250 M (4-5 events) | 2.16 B | 3.62 B |
-| 4 | 521 M | 200 M | 2.88 B | 4.34 B |
-| 5–8 (halving 1) | 1.04 B | ~600 M | 4.52 B | 5.98 B |
-| 9–12 (halving 2) | 521 M | ~400 M | 5.44 B | 6.90 B |
-| ... | ... | ... | ... | ... |
-| ∞ (asymptote) | ~4.16 B | bounded by pools | ~8.5 B | ~10.0 B |
+| Source | Cycle 0 contribution to circulating |
+|---|---|
+| Migration Pool (day-one float) | 100 B ATOS (mostly claimed in year 1) |
+| Block reward minted (from Miner Pool) | ~500 B (half the pool) |
+| — immediate 20% (circulates) | ~100 B (~25 B/year) |
+| — locked 80% (circulates only via tier release) | ~400 B accrued, not yet circulating |
 
-A bear scenario (price stays at T0 for years 1-3):
+Absent any tier release, circulating at the end of cycle 0 ≈ 100 B
+(migration) + 100 B (immediate) = **~200 B** — about 2% of the 10 T cap.
 
-| Year | Block reward | Tier release | Cumulative supply |
-|---|---|---|---|
-| 0–4 | 2.08 B | ~600 M (T0 only, 5% × ~24 events × ~50 M) | 4.14 B |
+**Endogenous part** — the conditional tier engine unlocks 5% of *current*
+circulating per sustained-tier event, split 50/50 Miner/Project:
 
-The block reward path is deterministic; the tier release path is endogenous.
+| Scenario | Circulating trajectory |
+|---|---|
+| Bear (price never sustains T0) | stays near the deterministic path (~200 B by end of cycle 0); grows only via immediate block rewards |
+| Bull (T1–T3 sustained) | each event adds 5%; circulating compounds from hundreds of billions toward trillions over years, drawing down the Miner (1 T) and Project (8.9 T) pools |
+
+Total supply converges toward — but never exceeds — the **10 trillion**
+cap. The block-reward path is deterministic; the tier-release path is
+endogenous (demand-driven), which is the whole point of the model.
 
 ## Reading the current state
 
@@ -301,32 +319,41 @@ tier_release_cumulative(t):
     Σ over events: 5% × circulating_at_event_time
 
 migration_claims_to_date(t):
-    bounded by 100 M, mostly closed by year 1
+    bounded by 100 B, mostly closed by year 1
 ```
 
 The chain provides every number via REST queries — no scraping needed.
 
 ## Sensitivity to block time
 
-The block-time assumption matters. If real mainnet block time is 3 seconds
-but `halving_interval_blocks` stays at 1,051,200, halvings come every 36
-days instead of 4 years. Per-block reward stays the same, but year-0
-emission is `28,800 × 24 × 19,819 × 36.5 / 365` × 12 ≈ much smaller than
-intended.
+`halving_interval_blocks = 25,228,800` and `price_check_epoch_blocks =
+17,280` are **block counts**, so their calendar meaning depends on the
+live block time. At the 5-second design they mean "4 years" and "1 day".
 
-If governance wants to maintain the "4-year halving" semantics, the
-parameter must be adjusted:
+As of 2026-07 the live chains are faster — **~3.5 s mainnet, ~3.4 s
+testnet** — so at the current rate:
+
+```
+halving epoch  ≈ 25,228,800 × 3.5 s ≈ 2.8 years   (design intent: 4 years)
+price epoch    ≈ 17,280 × 3.5 s     ≈ 16.8 hours  (design intent: 24 hours)
+30-epoch window ≈ 21 days                          (design intent: 30 days)
+```
+
+Per-block and per-cycle **ATOS amounts are unaffected** (block-count
+based); only wall-clock durations move. To restore the intended calendar
+semantics, either bring `timeout_commit` back to the 5-second target (the
+current plan), or re-tune the block-count params to the observed rate:
 
 ```
 halving_interval_blocks = ⌊4 × 365.25 × 86400 / block_time_seconds⌋
-                        = 42,048,000 if block_time = 3 sec
-                        = 25,228,800 if block_time = 5 sec  (original)
+                        = 25,228,800 at 5 s (current default)
+                        ≈ 36,036,000 at 3.5 s
+price_check_epoch_blocks = ⌊86400 / block_time_seconds⌋
+                        = 17,280 at 5 s (current default)
+                        ≈ 24,700 at 3.5 s
 ```
 
-This is a pending governance decision (see [governance case studies](../modules/09-governance.md)).
-The chain's tokenomics.params.halving_interval_blocks default is the
-5-second-block assumption; if testnet sustains 3-second blocks, expect a
-proposal to retune.
+This is a pending decision (see [governance runbook](../reference/governance-runbook.md)).
 
 ## Related
 
@@ -337,4 +364,4 @@ proposal to retune.
 
 ---
 
-*Last reviewed: 2026-06-10*
+*Last reviewed: 2026-07-12*

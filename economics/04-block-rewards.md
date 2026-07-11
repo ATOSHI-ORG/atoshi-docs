@@ -54,25 +54,32 @@ immediate_share   = 19,819 × 0.20 = 3,963.8 ATOS / block
 locked_share      = 19,819 × 0.80 = 15,855.2 ATOS / block (to proposer's locked balance)
 ```
 
-With 28,800 blocks/day (at 3-second blocks):
+With 17,280 blocks/day (at the 5-second design block time):
 
 ```
-Total daily immediate distribution = 28,800 × 3,963.8 = ~114.2 M ATOS / day
-Total daily locked accumulation    = 28,800 × 15,855.2 = ~456.6 M ATOS / day
+Total daily immediate distribution = 17,280 × 3,963.8 = ~68.5 M ATOS / day
+Total daily locked accumulation    = 17,280 × 15,855.2 = ~274.0 M ATOS / day
 ```
 
 These numbers spread across all validators in proportion to their share
 of block production over time. With 4 validators of equal stake:
 
 ```
-Per-validator daily immediate = 28.5 M ATOS / day
-Per-validator daily locked    = 114.2 M ATOS / day (in locked_amount, NOT claimable yet)
+Per-validator daily immediate = ~17.1 M ATOS / day
+Per-validator daily locked    = ~68.5 M ATOS / day (in locked_amount, NOT claimable yet)
 ```
 
-At $0.15/ATOS that's $4.3 M / day immediate per validator. Numbers
-this large reflect the early-phase issuance design; expect them to shrink
-once the chain matures (via reduction in `initial_block_reward` or
-adjustment to `halving_interval_blocks`).
+At $0.15/ATOS that's ~$2.57 M / day immediate per validator. These are
+cycle-0 issuance figures (years 0–4); the block reward halves every
+25,228,800 blocks, so the stream falls by half each ~4-year cycle.
+
+> The live chains currently commit blocks faster than the 5-second design
+> (~3.5 s mainnet / ~3.4 s testnet as of 2026-07), which raises blocks/day
+> to ~24,700 and proportionally the daily figures. The plan is to restore
+> the 5-second target (`timeout_commit`); see the block-time note in
+> [Release schedule](./02-release-schedule.md).
+
+![Where each block reward goes and benchmark validator economics](../assets/whitepaper/validator-economics.png)
 
 ## Locked share — the 80% that waits for tier release
 
@@ -164,14 +171,19 @@ T1 price (1 release event every 30 days at 5% of circulating supply):
 ### Immediate income
 
 ```
-Yearly blocks proposed = 25% × 28,800 × 365 = 2,628,000 blocks
-Immediate / block = 3,963.8 ATOS
-Yearly immediate = 2,628,000 × 3,963.8 = 10.4 B ATOS
+Yearly blocks (total)  = 6,307,200  (5-second design)
+Blocks proposed (25%)  = 25% × 6,307,200 = 1,576,800 blocks
+Immediate / block      = 3,963.8 ATOS
+Yearly immediate       = 1,576,800 × 3,963.8 ≈ 6.25 B ATOS  (cycle 0)
 ```
 
-(These numbers are clearly too large; they reflect the unadjusted block
-reward formula. In practice mainnet will scale this down via parameter
-tuning before launch.)
+This is the **designed** cycle-0 emission, not an error: the Miner Pool
+is 1 trillion ATOS and cycle 0 (years 0–4) emits ~500 B of it, of which
+20% (~100 B) is the immediate stream shared across validators — a 25%
+proposer share of that is ~6.25 B/year. The stream **halves every
+25,228,800 blocks (~4 years)**, so it is ~3.13 B/year in cycle 1, and so
+on. In percentage terms a 25% validator earns ~0.06% of total supply per
+year in immediate rewards during cycle 0.
 
 ### Locked accumulation
 
@@ -192,34 +204,33 @@ For a 25% stake validator: roughly 25% of the 2.5% = 0.625% of circulating
 ```
 
 So per tier-release event, this validator can claim ~0.625% of circulating
-supply. At 2 B circulating, that's 12.5 M ATOS per release.
+supply. At 200 B circulating, that's ~1.25 B ATOS per release.
 
-### Yearly summary (rough order of magnitude)
+### Yearly summary (rough order of magnitude, cycle 0, sustained T1)
 
 ```
-Immediate           ~10 B ATOS  (oversize, expect mainnet rescaling)
-Locked claimed      ~150 M ATOS (12 releases × 12.5 M)
+Immediate           ~6.25 B ATOS  (25% proposer share, cycle 0)
+Locked claimed      ~15 B ATOS    (~12 releases × ~1.25 B)
 Fees                ~0
-Total               ~10.15 B ATOS / year
-                    (worst case, sustained T1 across all 12 months)
+Total               ~21 B ATOS / year
+                    (sustained T1 across all 12 months)
 ```
 
-A 25%-stake validator earning 10 B ATOS in a year clearly indicates the
-block-reward parameter needs to be retuned before mainnet — current
-testnet numbers are placeholder values for testing the mechanism. The
-mainnet `initial_block_reward` will be governance-set to something
-reasonable (likely two orders of magnitude smaller) before launch.
+These are large absolute numbers only because total supply is 10 trillion
+— in relative terms the validator earns a fraction of a percent of supply
+per year, exactly as the 1-trillion Miner Pool / 8.9-trillion Project Pool
+split intends. The immediate stream halves each ~4-year cycle.
 
 ## Validator economics in the bear case
 
 Same validator, but T0 sustained (no tier releases):
 
 ```
-Immediate           ~10 B ATOS
-Locked accumulated  ~40 B ATOS (sits in the pool, unclaimable)
+Immediate           ~6.25 B ATOS
+Locked accumulated  ~25 B ATOS (sits in the pool, unclaimable)
 Fees                ~0
-Total claimed       ~10 B ATOS / year
-Unclaimed potential ~40 B ATOS (waits for tier resume)
+Total claimed       ~6.25 B ATOS / year
+Unclaimed potential ~25 B ATOS (waits for tier resume)
 ```
 
 The validator earns the immediate share regardless of tier. The 80%
@@ -306,12 +317,18 @@ validator and chain success over years, not over single blocks.
 
 ## Future tuning
 
-Likely governance proposals before mainnet:
+Possible governance actions:
 
-1. **Reduce `initial_block_reward`** — current value implies oversize
-   issuance; expect 10-100× reduction.
-2. **Adjust `halving_interval_blocks`** to match real block time (4-year
-   epoch needs ~42 M blocks at 3-second blocks, not 1 M).
+1. **Restore the 5-second block time** — the live chains commit blocks at
+   ~3.5 s (mainnet) / ~3.4 s (testnet) as of 2026-07, so the block-count
+   parameters (`halving_interval_blocks = 25,228,800` ≈ 4 years,
+   `price_check_epoch_blocks = 17,280` ≈ 1 day) currently map to shorter
+   wall-clock periods (~2.8 years, ~16.8 h). Bringing `timeout_commit`
+   back to 5 s restores the intended calendar semantics. (`initial_block_reward`
+   itself is correct — it is the designed 1-trillion Miner Pool emission,
+   not an oversize placeholder.)
+2. **Alternatively, re-tune the block-count params** to the observed rate
+   (4-year epoch ≈ 36 M blocks, daily check ≈ 24,700 blocks at 3.5 s).
 3. **Possibly add slashing of locked rewards** — strengthens alignment
    but is contentious.
 4. **Consider opening up locked share to delegators** — improves
@@ -330,4 +347,4 @@ governance event.
 
 ---
 
-*Last reviewed: 2026-06-10*
+*Last reviewed: 2026-07-12*
