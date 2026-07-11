@@ -52,6 +52,7 @@ If you are looking for:
 - [REST + JSON-RPC API reference](./reference/api-guide.md)
 - [Wallet integration handbook](./reference/wallet-integration.md)
 - [Node operation guide](./reference/node-operation.md)
+- [Governance runbook](./reference/governance-runbook.md) — submitting proposals, param changes, software upgrades
 - [Glossary](./reference/glossary.md)
 - [FAQ](./reference/faq.md)
 

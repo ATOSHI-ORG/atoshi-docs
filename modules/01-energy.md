@@ -4,6 +4,12 @@ The energy module is the centerpiece of Atoshi's user-experience design. Instead
 
 This chapter is the canonical specification of the module: data model, accrual mathematics, delegation, consumption order, ante-handler integration, parameters, edge cases. If you only read one module chapter, read this one.
 
+The three questions this chapter answers in full — each has a dedicated worked-example section below:
+
+- **How does energy accumulate?** → [Accrual](#accrual-how-energy-accumulates)
+- **How do I transfer (delegate) energy to another account?** → [Delegation](#delegation-lending-energy-to-another-account)
+- **Once transferred, can anyone else touch that energy?** → [Why delegated energy is exclusive](#why-delegated-energy-cannot-be-used-by-anyone-else)
+
 ## Mental model
 
 Hold ATOS → earn the right to transact for free, at a rate proportional to your holding.
@@ -12,66 +18,72 @@ Specifically:
 
 - Holding **30,000 ATOS** unlocks **50,000 TxEnergy capacity**, refilled linearly over **24 hours**.
 - Holding **1,000,000 ATOS** additionally unlocks **800,000 DeployEnergy capacity**, refilled linearly over **10 days**.
-- Both are uint64 counters tracked per account.
-- Both can be delegated to other accounts for a fixed duration; the corresponding ATOS is locked as collateral.
+- Both are `uint64` counters tracked per account.
+- TxEnergy can be **delegated** (lent) to another account for a fixed duration; the corresponding ATOS is locked as collateral. DeployEnergy cannot be delegated.
 
-`TxEnergy` covers ordinary transactions (transfers, contract calls, delegations). `DeployEnergy` covers contract deployment messages (Wasm instantiate / store-code, EVM creation tx wrapped as a Cosmos msg).
+`TxEnergy` covers ordinary transactions (transfers, contract calls, delegations). `DeployEnergy` covers contract-deployment messages (Wasm instantiate / store-code). EVM `MsgEthereumTx` — including contract-creation EVM txs — is **not** handled here; see [The EVM boundary](#the-evm-boundary).
 
 ## State
 
 ### `EnergyAccount`
 
-One record per account. Definition mirrors `x/energy/types/energy.proto`:
+One record per account. Definition mirrors `proto/atoshi/energy/v1/energy.proto`:
 
-```
+```protobuf
 message EnergyAccount {
-  string  address                = 1;   // bech32, the account this row describes
-  uint64  tx_energy_accrued      = 2;   // current TxEnergy held by the account
-  uint64  deploy_energy_accrued  = 3;   // current DeployEnergy held by the account
-  string  last_balance_snapshot  = 4;   // ATOS balance at last settle, used for capacity
-  int64   last_updated_time      = 5;   // unix time of last settle
-  uint64  delegated_out          = 6;   // TxEnergy currently lent to others
-  uint64  delegated_in_usable    = 7;   // TxEnergy received from others, still usable
-  string  locked_atos            = 8;   // total ATOS currently in collateral lock
+  string address               = 1;   // bech32, the account this row describes
+  uint64 tx_energy_accrued     = 2;   // current spendable TxEnergy (before adding delegated_in_usable)
+  uint64 deploy_energy_accrued = 3;   // current spendable DeployEnergy
+  string last_balance_snapshot = 4;   // eligible_balance (bank − locked) at last settle
+  int64  last_updated_time     = 5;   // unix second of last settle
+  uint64 delegated_out         = 6;   // TxEnergy currently lent to others
+  uint64 delegated_in_usable   = 7;   // TxEnergy received from others, still usable
+  string locked_atos           = 8;   // total ATOS currently in collateral lock
 }
 ```
 
 The four spendable / locked totals (`tx_energy_accrued`, `delegated_out`, `delegated_in_usable`, `locked_atos`) are denormalized for fast read access. The authoritative ledger of outstanding delegations lives in the separate `EnergyDelegation` table.
 
+Usable TxEnergy for an account is always:
+
+```
+usable = (tx_energy_accrued − delegated_out) + delegated_in_usable
+```
+
 ### `EnergyDelegation`
 
 One record per active delegation:
 
-```
+```protobuf
 message EnergyDelegation {
-  uint64 id              = 1;   // monotonic, unique across all delegations
-  string delegator       = 2;
-  string delegatee       = 3;
-  uint64 amount          = 4;   // TxEnergy units lent
-  string locked_atos     = 5;   // collateral held in the locked module account
-  int64  start_time      = 6;
-  int64  expires_at      = 7;   // auto-released by EndBlocker at this time
-  uint64 used            = 8;   // accumulated consumption by the delegatee
+  uint64 id          = 1;   // monotonic, unique across all delegations
+  string delegator   = 2;
+  string delegatee   = 3;
+  uint64 amount      = 4;   // TxEnergy units lent (gas units)
+  string locked_atos = 5;   // collateral frozen in the locked module account
+  int64  start_time  = 6;
+  int64  expires_at  = 7;   // auto-released by EndBlocker at this time
+  uint64 used        = 8;   // accumulated consumption attributed to this record
 }
 ```
 
 Two secondary indices accelerate common queries:
-- by `delegator` — wallet "my outgoing delegations" view
-- by `expires_at` (8 bytes big-endian, then 8 bytes id) — EndBlocker sweep
 
-### Module accounts
+- by `delegatee` — used by the consume path to attribute burn to specific inbound delegations
+- by `expires_at` (8 bytes big-endian, then 8 bytes id) — EndBlocker expiry sweep, O(expired) not O(total)
 
-- `energy_locked` — holds all ATOS posted as delegation collateral. Module account `atoshi12ham4nq8y2rpqs63wcuh4adnjwev6qavrc2wp5`.
+### Module account
+
+- `energy_locked_pool` — holds all ATOS posted as delegation collateral. The delegator's bank balance is physically reduced by the locked amount (the ATOS is *moved*, not merely earmarked), which is exactly why locked ATOS cannot be transferred by anyone while a delegation is live.
 
 ## Capacity formula
 
-Capacity is a step function of the account's bank balance (locked-out collateral excluded):
+Capacity is a step function of the account's **eligible balance** — the bank balance minus any ATOS locked out as delegation collateral:
 
 ```
-eligible_balance = bank.GetBalance(address) - locked_atos
+eligible_balance = bank.GetBalance(address) − locked_atos
 threshold_blocks = floor(eligible_balance / TxEnergyHoldingThreshold)
-
-tx_energy_capacity = threshold_blocks × TxEnergyPerThreshold
+tx_energy_capacity = threshold_blocks × TxEnergyPerThreshold      (saturating on overflow)
 ```
 
 With default params (`TxEnergyHoldingThreshold = 30,000 ATOS`, `TxEnergyPerThreshold = 50,000`):
@@ -85,61 +97,104 @@ With default params (`TxEnergyHoldingThreshold = 30,000 ATOS`, `TxEnergyPerThres
 
 The step function is deliberate: it makes the holding requirement unambiguous and easy to communicate ("hold 30,000 ATOS to transact for free"). A linear function would let attackers earn near-zero capacity by holding dust.
 
-DeployEnergy uses the same shape but with `DeployHoldingThreshold = 1,000,000 ATOS` and capacity `800,000` per block.
+DeployEnergy is different: `DeployEnergyCapacity` (default 800,000) is a **constant per-account ceiling**, not a per-block multiplier. Any account holding ≥ `DeployHoldingThreshold` (1,000,000 ATOS) refills toward the same 800,000 cap; larger holdings only refill *faster*, they do not raise the cap. See the accrual section for the rate.
 
-## Accrual: how energy refills
+## Accrual: how energy accumulates
 
-Energy refills **lazily** — there is no scheduled job that touches every account every block. Instead, the chain remembers `last_updated_time` and `last_balance_snapshot` per account, and recomputes accrued energy when the account is next read or written. This pattern, called `Settle`, is invoked:
+This is the first of the three headline questions. Energy is a bucket that refills toward its capacity at a fixed rate; you spend from the bucket, and holding ATOS keeps refilling it.
 
-- by the ante-handler before fee deduction (mutating call)
-- by every keeper message handler at the start (mutating call)
-- by queries (non-mutating: `SimulateSettle`)
+### Lazy settlement — no per-block sweep
+
+Energy refills **lazily**. There is no scheduled job that touches every account every block. The chain stores `last_updated_time` and `last_balance_snapshot` per account and recomputes accrued energy only when the account is next touched. This routine is called `Settle` (`keeper/settle.go`) and runs:
+
+- in the ante-handler, before fee deduction (mutating)
+- at the start of every keeper message handler (mutating)
+- inside queries as `SimulateSettle` (non-mutating — so external callers see live numbers, never stale stored ones)
+
+Because settlement is idempotent within a block, you can never observe a stale energy value from outside the chain: the `Account` query settles before returning.
 
 ### The refill equation
 
-For TxEnergy:
+For TxEnergy, on each settle:
 
 ```
-elapsed = now - last_updated_time
-cap     = TxEnergyCapacity(last_balance_snapshot, params)
-add     = (elapsed × cap) / TxEnergyMaxAccrueWindow
-
+elapsed = now − last_updated_time
+cap     = TxEnergyCapacity(last_balance_snapshot)
+add     = (cap × elapsed) / TxEnergyMaxAccrueWindow          // multiply-before-divide
 new_accrued = min(tx_energy_accrued + add, cap)
 ```
 
-Default `TxEnergyMaxAccrueWindow` is 86,400 (24 hours). So a holder at 30,000 ATOS regains 50,000 / 86,400 ≈ 0.578 energy per second, until the cap.
+`TxEnergyMaxAccrueWindow` defaults to 86,400 (24h). The multiply-before-divide ordering matters: a naive `(cap / window) × elapsed` truncates to zero for any sub-window interval (`50000 / 86400 == 0` in integer math). All intermediate products use saturating arithmetic so a governance re-tune can never wrap `uint64`.
 
-For DeployEnergy, the per-second rate is `(units × capacity) / (DeployRecoverDays × 86,400)`, where `units = floor(balance / DeployHoldingThreshold)`. The formula is rearranged to multiply before dividing so that low-holding-but-positive accounts don't lose precision to integer truncation.
+**Worked example (TxEnergy).** Alice holds 30,000 ATOS, so `cap = 50,000`. Rate = 50,000 / 86,400 ≈ **0.5787 energy/second**.
 
-### Why `last_balance_snapshot` and not `current_balance`
+- Start empty. After 1 hour (3,600 s): `add = 50,000 × 3,600 / 86,400 = 2,083`. Accrued ≈ 2,083.
+- After 12 hours: `add = 50,000 × 43,200 / 86,400 = 25,000`. Accrued = 25,000 (half the cap).
+- After 24 hours: accrued hits the 50,000 cap and stops. Holding longer does not overfill.
 
-The snapshot is what the balance was *during the period being settled*. If we used `current_balance` to compute capacity over a period when the balance had changed, we'd misattribute accrual.
+**Worked example (DeployEnergy).** DeployEnergy rate is `(units × DeployEnergyCapacity × elapsed) / (DeployRecoverDays × 86,400)` where `units = floor(eligible_balance / DeployHoldingThreshold)`.
 
-The bank module hooks `OnBalanceChange`, which:
-1. Calls `Settle` first — closes out accrual against the OLD snapshot.
-2. Updates `last_balance_snapshot` to the NEW eligible balance.
-3. Caps `tx_energy_accrued` down to the new (possibly lower) capacity.
+- Bob holds exactly 1,000,000 ATOS → `units = 1`. Refill 0→800,000 takes the full 10 days.
+- Carol holds 3,000,000 ATOS → `units = 3`. She refills toward the *same* 800,000 cap at 3× the rate, i.e. ~3.3 days from empty. The cap does not rise; only the speed does.
 
-That third step (cap-down) is critical: an account that sells most of its ATOS should not retain a giant prefilled buffer to be moved to a new wallet for free transactions. Without the cap-down, capacity would only ever ratchet upward.
+### Why `last_balance_snapshot` and not the live balance
+
+The snapshot is what the balance was *during the period being settled*. Using the live balance to compute accrual over a period when the balance had changed would misattribute energy.
+
+The bank send hook (`SendRestriction` → `ApplyBalanceChange`) keeps the snapshot honest on every transfer of the base denom:
+
+1. `Settle` first — closes out accrual against the OLD snapshot.
+2. Write `last_balance_snapshot` = the projected NEW eligible balance.
+3. Cap `tx_energy_accrued` **down** to the new (possibly lower) capacity.
+
+That third step (cap-down) is critical: an account that sells most of its ATOS must not keep a giant prefilled buffer to move to a fresh wallet for free transactions. Without it, capacity would only ever ratchet upward.
+
+**Cap-down floors at `delegated_out`** (audit Issue 6). If a holder has lent energy out and then sells stake so the new cap falls below `delegated_out`, the cap-down stops at `delegated_out` rather than collapsing it — the lent energy is a promise already minted into the delegatee's `delegated_in_usable`, and cutting below it would break the symmetric accounting that undelegation relies on. Only the holder's *own* unused portion is cut.
+
+### The Evmos send-order footgun (fixed 2026-06-30)
+
+`ApplyBalanceChange` runs *before* the bank store write, so it must be handed the **projected** post-send balance, not read it back. The Evmos cosmos-sdk fork invokes `SendRestriction` **after** `subUnlockedCoins(from)` and **before** `addCoins(to)` — the opposite of upstream. So inside the hook:
+
+- `bank.GetBalance(from)` already reflects the subtraction → do **not** subtract `moved` again.
+- `bank.GetBalance(to)` is still pre-addition → **add** `moved` to project the post-receive balance.
+
+The pre-fix code double-subtracted on the sender side, silently shaving one `moved` worth of eligible balance off the snapshot on *every* transfer — for a 30,000-ATOS movement that is exactly one threshold block, i.e. capacity dropped by 50,000 energy per send. This was the production "5万 ATOS 凭空消失" (50k ATOS vanishing) fingerprint on testnet account `0x30F288…`. The fix is documented inline in `keeper/send_restriction.go`.
 
 ## Consumption: the ante-handler pipeline
 
 `x/energy/ante.EnergyDeductDecorator` replaces the SDK's stock `DeductFeeDecorator`. For every Cosmos tx:
 
-1. Decode the tx, identify signers, gas limit, message type URLs.
-2. Check the subsidized whitelist. If every message in the tx is subsidized, return `{Free: true}` and skip fee deduction entirely.
-3. Otherwise, call `Consume(signer, gasLimit, isDeploy, msgTypeUrls)`. This:
-   - For deploy txs: drains `DeployEnergyAccrued` first, then `TxEnergyAccrued`, then `DelegatedInUsable`.
-   - For regular txs: drains `TxEnergyAccrued` (less `DelegatedOut`), then `DelegatedInUsable`.
-   - Returns `ConsumeResult{EnergyDeducted, DeployEnergyUsed, ShortfallGas, Free}`.
-4. If `ShortfallGas == 0`: skip the fee deduction.
-5. Otherwise: compute the ATOS shortfall fee and call `bank.SendCoinsFromAccountToModule(signer, fee_collector, ...)`.
+1. Decode the tx, resolve the fee payer (honoring `--fee-granter` / `x/feegrant`), collect message type URLs and the gas limit. Reject a zero gas limit.
+2. If **every** message in the tx is on the subsidized whitelist → `{Free: true}`, skip fee deduction entirely.
+3. Otherwise call `Consume(payer, gasLimit, isDeploy, msgTypeUrls)` (`keeper/consume.go`), which drains energy in the order below and returns `ConsumeResult{EnergyDeducted, OwnDeducted, DelegatedDeducted, DeployEnergyUsed, ShortfallGas, Free, DelegationConsumptions}`.
+4. If `ShortfallGas == 0` → validate priority, skip the fee transfer.
+5. Otherwise → charge the ATOS shortfall to the `fee_collector` module account.
 
-The post-handler runs after the message handlers and refunds any reserved energy that wasn't actually used (gas refund equivalent).
+The **PostHandler** (`ante/post.go`) refunds reserved-but-unused energy after the messages run (the energy equivalent of a gas refund). A **pending-reservation marker** written in ante state guards against the case where `runMsgs` fails: BaseApp then discards the msg-context state and skips the PostHandler, so the refund would be lost — the EndBlocker sweeps leftover markers and refunds failed-tx reservations (audit Issue-1 round2).
+
+### Consume order
+
+For a **regular** tx:
+
+1. Own energy: `tx_energy_accrued − delegated_out`.
+2. Then the inbound-delegation pool: `delegated_in_usable`.
+3. Anything still uncovered → `ShortfallGas`.
+
+For a **deploy** tx: `deploy_energy_accrued` first, then the two TxEnergy buckets above, then `ShortfallGas`.
+
+`delegated_out` is subtracted in step 1 because that energy has already been minted into the delegatees' `delegated_in_usable`; not subtracting it would let the delegator double-spend energy it has already lent.
+
+### Refund order is LIFO by origin
+
+The PostHandler refunds `reserved − actually_used`. It splits the refund by **origin** (audit Q1 / Issue 11):
+
+- The **delegated** portion is refunded first, walking `DelegationConsumptions` in reverse (last-consumed first) and rolling back each delegation record's `used` in lock-step. Rolling unused energy back onto the same time-bounded grant keeps it intact instead of silently converting it to permanent own-energy on the delegatee.
+- If a delegation was undelegated or swept between `Consume` and the refund, that slice is **lost, not redirected** to the signer's own bucket — the delegator was already debited for it inside `releaseDelegation`, so no counterparty is owed (audit Issue 11).
+- Any remaining refund credits the signer's own `tx_energy_accrued`, capped at current capacity.
 
 ### Subsidized whitelist (always-free messages)
 
-Defined in `x/energy/types.DefaultParams().SubsidizedMsgTypeUrls`:
+Defined in `types.DefaultParams().SubsidizedMsgTypeUrls`:
 
 | Type URL | Purpose |
 |---|---|
@@ -147,118 +202,175 @@ Defined in `x/energy/types.DefaultParams().SubsidizedMsgTypeUrls`:
 | `/atoshi.tokenomics.v1.MsgClaimMinerLockedReward` | Validator unlock claim |
 | `/atoshi.tokenomics.v1.MsgClaimProjectTreasuryReward` | Treasury claim |
 | `/atoshi.oracle.v1.MsgReportPrice` | Allow-listed feeder price report |
-| `/atoshi.energy.v1.MsgDelegateEnergy` | Energy delegation (collateral is the anti-spam) |
+| `/atoshi.energy.v1.MsgDelegateEnergy` | Energy delegation |
 | `/atoshi.energy.v1.MsgUndelegateEnergy` | Energy revocation |
 
-Subsidization is global — even an account with zero balance and zero energy can call these messages free of charge. The anti-abuse mechanism for delegation is the ATOS collateral lock; for claim messages it is application-level authorization (e.g. only the validator can claim their own locked reward).
+Subsidization is global — even an account with zero balance and zero energy can call these free of charge. For claim messages the anti-abuse control is application-level authorization; for delegate/undelegate it is the ATOS collateral lock.
+
+Delegate/undelegate **must** be subsidized: the ante-handler greedily reserves up to `gas_limit` of the signer's energy as fee coverage, which would empty the delegator's accrued energy *before* the delegate handler runs and tries to lock part of it. A tx that is entirely subsidized reserves nothing, so the handler sees the full accrued balance.
 
 ### Shortfall pricing
 
-If energy is short, the chain charges:
+When energy is short:
 
 ```
-charge = min(user_offered_gas_price, params.InsufficientGasPrice) × shortfall_gas
+charge = min(user_offered_gas_price, InsufficientGasPrice) × shortfall_gas
 ```
 
-`InsufficientGasPrice` defaults to `0.0021 aatos / gas`. The cap on the user's offered price prevents fee griefing: a user can't pay a non-energy fee 100x the standard rate to push other tx out of the mempool — the chain charges at most the policy price.
+`InsufficientGasPrice` defaults to `0.0021 aatos/gas`. Capping the user's offered price prevents fee griefing — a user cannot pay a huge non-energy fee to push others out of the mempool; the chain charges at most the policy price. If the user offered zero fee the chain still charges at the policy price, otherwise the shortfall could be dodged with `tx.fee = 0`.
 
-If the user offered zero fee, the chain still charges at the policy price. Otherwise the user could dodge the shortfall by setting `tx.fee = 0`.
+**Priority** is derived from the ATOS actually paid (`chargeAtos`), not the declared fee (audit Q1 round2). Otherwise an energy whale could declare a huge fee, pay almost nothing because energy covered the gas, and still jump the queue with no real economic stake in the slot.
 
 ## Delegation: lending energy to another account
 
-Use case: a Relayer service offers "send your ATOS for free" by accepting energy delegations from holders, then pays gas on the holders' behalf. Or: a parent account funds a child wallet's gas without sending tokens.
+This is the second headline question. "Energy transfer" on Atoshi is a **delegation** (a lend), not a permanent handover: you keep ownership of the underlying ATOS, you lock it as collateral, and the borrowed energy is bound to one recipient for a fixed window, after which it returns to you automatically.
 
-### Delegate flow
+Use cases: a relayer service that offers "send your ATOS for free" by accepting delegations from holders and paying gas on their behalf; or a parent account funding a child wallet's gas without sending it any tokens.
+
+### How to do it — CLI
+
+```bash
+# Lend 200,000 TxEnergy to <delegatee> for 7 days.
+# 200,000 gas ≈ 4 ERC20 transfers.
+atoshid tx energy delegate <delegatee> 200000 168h --from mywallet
+
+# Cancel one of your outbound delegations early and reclaim the frozen ATOS.
+atoshid tx energy undelegate <delegation_id> --from mywallet
+```
+
+- `AMOUNT` is TxEnergy in gas units.
+- `DURATION` is a Go duration string (`24h`, `168h`, `720h`). If omitted / set to `0` on the message, the protocol default of **7 days** (`604800 s`) applies.
+
+The underlying messages are `MsgDelegateEnergy{delegator, delegatee, amount, duration_seconds}` and `MsgUndelegateEnergy{delegator, delegation_id}`. `DelegateEnergy` returns the new `delegation_id` and the exact `locked_atos`.
+
+### Collateral: how much ATOS gets frozen
 
 ```
-MsgDelegateEnergy {
-  delegator        string  // signer
-  delegatee        string  // recipient
-  amount           uint64  // TxEnergy units
-  duration_seconds int64   // lock period
-}
+threshold_units = ceil(amount / TxEnergyPerThreshold)
+locked_atos     = threshold_units × TxEnergyHoldingThreshold
 ```
 
-Keeper logic (simplified from `keeper/delegation.go`):
+You must lock the bank balance that *would have backed* the lent capacity — the TRON-style freeze model. This prevents lending energy you do not actually back with stake.
 
-1. Compute collateral: `locked = ceil(amount / TxEnergyPerThreshold) × TxEnergyHoldingThreshold`.
-2. Settle delegator. Require `(tx_energy_accrued - delegated_out) >= amount`.
-3. Require free ATOS balance ≥ `locked`.
-4. `bank.SendCoinsFromAccountToModule(delegator, energy_locked, locked)`.
-5. `delegator.DelegatedOut += amount`
-   `delegator.LockedAtos += locked`
-   `delegator.LastBalanceSnapshot = bank.GetBalance(delegator)` ← drops by `locked`.
-6. Settle delegatee, then `delegatee.DelegatedInUsable += amount`.
-7. Insert `EnergyDelegation{id, delegator, delegatee, amount, locked, start, expires_at, used=0}`.
+**Rounding is up, to whole threshold blocks.** With defaults, delegating any amount from 1 up to 50,000 energy locks the full **30,000 ATOS**. Delegating 50,001 locks **60,000 ATOS**. Wallet UIs must surface this — users will otherwise be surprised that lending "a little" energy freezes a whole block of ATOS.
 
-**Important non-obvious behavior**:
+### Delegate flow (keeper `Delegate`)
 
-- Collateral is rounded **up** to whole `TxEnergyHoldingThreshold` blocks. Delegating any amount up to 50,000 energy locks 30,000 ATOS (the full block). Delegating 50,001 locks 60,000. UI must communicate this — users will be surprised otherwise.
-- The delegator's `tx_energy_accrued` is **not** decreased. Their `delegated_out` is increased instead. The usable energy formula stays `accrued - delegated_out + delegated_in_usable`.
-- Delegated energy is **NOT** transitively delegatable. The delegatee can spend it but cannot re-delegate, because the delegate path checks `accrued - delegated_out` (excluding `delegated_in_usable`).
+1. Reject `amount == 0`, `duration ≤ 0`, and `delegator == delegatee` (`ErrSelfDelegation`).
+2. Compute `locked_atos` (ceil, as above).
+3. `Settle` the delegator. Require free energy `(tx_energy_accrued − delegated_out) ≥ amount` (`ErrInsufficientEnergy`).
+4. Require free bank balance `≥ locked_atos` (`ErrInsufficientBalance`).
+5. Write the delegator counters **before** the bank move: `delegated_out += amount`, `locked_atos += locked`. (Pre-writing keeps the send hook's projected eligible balance stable, so a delegation is capacity-neutral — see the inline audit notes.)
+6. `bank.SendCoinsFromAccountToModule(delegator → energy_locked_pool, locked)`.
+7. `Settle` the delegatee, `delegated_in_usable += amount`.
+8. Insert `EnergyDelegation{id, …, used: 0}`.
 
-### Consume order with delegations
+Non-obvious properties:
 
-When the delegatee spends gas, the ante-handler drains:
+- The delegator's `tx_energy_accrued` is **not** decreased — `delegated_out` rises instead, and the usable formula `accrued − delegated_out + delegated_in_usable` handles the rest.
+- A single delegatee can receive from many delegators; the incoming grants simply sum into one `delegated_in_usable` counter.
 
-1. The delegatee's own `tx_energy_accrued - delegated_out`.
-2. Then `delegated_in_usable` (across all incoming delegations — there's a single counter, no per-delegation accounting in the consume path).
+### Consume attribution — soonest-expiring first
 
-The `delegated_in_usable` counter shrinks as the delegatee consumes; the keeper does not attempt to assign consumption to a specific delegation record's `used` field on every tx (that would be costly). Instead, periodic reconciliation or the expiry sweep figures out how the consumption attributes back.
+When the delegatee spends from `delegated_in_usable`, the keeper attributes the burn across that account's inbound delegations **ordered by `expires_at` ascending** (soonest deadline first; tie-break on id for determinism). This was audit Issue 7: id-order attribution could burn a 30-day grant before a 30-minute one, wasting the short-tenor grant. Oldest-deadline-first extracts maximum value from each grant before it expires.
 
-### Undelegate (early revocation)
+### Undelegate (early revocation) and automatic expiry
 
-`MsgUndelegateEnergy{delegator, delegation_id}` — only callable by the original delegator. Frees the collateral, removes unused energy from the delegatee, deletes the record. Already-consumed energy stays consumed (the delegatee got the value).
+`MsgUndelegateEnergy` is callable **only by the original delegator**. It and the EndBlocker expiry sweep share one code path, `releaseDelegation`:
 
-### Automatic expiry
+1. `Settle` the delegator. **Deduct the already-consumed `used` from the delegator's `tx_energy_accrued`** (audit Issue-2 round2 — see the security section below), then `delegated_out −= amount`, `locked_atos −= this delegation's locked`.
+2. Refund the locked ATOS from `energy_locked_pool` back to the delegator.
+3. `Settle` the delegatee, `delegated_in_usable −= remaining` (the unused part).
+4. Delete the record and emit an event.
 
-`SweepExpiredDelegations` runs in the EndBlocker. It iterates the `by_expires_at` secondary index (sorted, so O(expired) per block, not O(total)) and releases each expired delegation via the same code path as undelegate. The released event has type `energy_delegation_expired` instead of `energy_undelegated`.
+Already-consumed energy stays consumed — the delegatee got that value.
 
-**This means**: expired releases produce no transaction. They are EndBlocker events, not indexable by `cosmos/tx/v1beta1/txs?query=...`. Wallets that want to detect "my delegation just expired" must either subscribe to block events via WebSocket or poll the delegations query.
+`SweepExpiredDelegations` runs in the **EndBlocker**, iterating the `by_expires_at` index (sorted, so O(expired) per block). Expired releases produce **block events, not a transaction** — `energy_delegation_expired` is *not* retrievable via `cosmos/tx/v1beta1/txs?query=…`. Wallets that need to detect "my delegation just expired" must subscribe to block events over WebSocket or poll the delegations query.
+
+## Why delegated energy cannot be used by anyone else
+
+This is the third headline question, and the security core of the design: **once you delegate energy, it is exclusively the delegatee's until it expires — not yours, not re-lendable, not reachable by any third party — and the ATOS that backs it is frozen.** Four independent mechanisms enforce this.
+
+### 1. The delegator loses the use of it immediately
+
+Delegating raises `delegated_out`, and every consume path computes the delegator's own available energy as `tx_energy_accrued − delegated_out`. The moment the delegation lands, that slice is subtracted from what the delegator can spend. The delegator cannot both lend energy *and* keep spending it.
+
+### 2. Only the named delegatee can spend it
+
+The lent `amount` is added solely to the *delegatee's* `delegated_in_usable`. No other account's state is touched. Energy is spent only from the signer's own account row, so a third party has no counter from which to draw the delegation — there is no bearer instrument, no transferable claim, nothing another address can present to spend it.
+
+### 3. Delegated energy is not transitively re-delegatable
+
+The delegate path requires free energy `tx_energy_accrued − delegated_out ≥ amount` — it looks **only** at the delegatee's *own* accrued energy and deliberately **excludes** `delegated_in_usable`. So a delegatee can *spend* borrowed energy on their own txs but cannot re-lend it onward. Delegation is exactly one hop deep. This stops an attacker from laundering a single locked stake through a chain of accounts to multiply usable energy.
+
+### 4. The backing ATOS is frozen, and consumed energy is debited on release
+
+Collateral is **physically moved** to `energy_locked_pool`, so it leaves the delegator's spendable bank balance entirely — no one, delegator included, can transfer or re-use it while the delegation is live. It also drops out of the delegator's eligible balance, so it stops generating fresh capacity for the duration. The ATOS returns only on undelegate or expiry.
+
+The subtle attack this closes (audit Issue-2 round2): suppose release only shrank `delegated_out` and left `tx_energy_accrued` untouched. A delegator could `Delegate → let the delegatee burn it → Undelegate`, and because `delegated_out` fell back to zero while `tx_energy_accrued` still counted the burned units as own-available, the delegator would recover energy the delegatee had *already spent* — two transactions' worth of gas out of one accrued budget, repeatable without bound. The fix deducts `used` from the delegator's `tx_energy_accrued` on release, so energy the delegatee consumed is genuinely gone from the delegator too. Energy is conserved end to end: it is spent exactly once, by exactly one account.
 
 ## Estimation: previewing the cost of a tx
 
-Before sending a tx, a wallet can call:
+Before sending, a wallet can preview the split without broadcasting:
 
-```
-GET /atoshi/energy/v1/estimate_fee?signer=&gas_limit=&is_deploy=
-```
-
-Returns:
-
-```
-{
-  energy_used:   uint64   // gas covered by energy
-  shortfall_gas: uint64   // gas requiring ATOS
-  atos_fee:      string   // shortfall × insufficient_gas_price
-  free:          bool     // true if every msg is subsidized
-}
+```bash
+atoshid query energy estimate-fee <signer> <gas_limit> [--deploy]
+# REST: GET /atoshi/energy/v1/estimate_fee?signer=&gas_limit=&is_deploy=
 ```
 
-Use this to display per-tx cost in the wallet. The chain side just runs the same code path as the ante-handler without committing state.
+Response:
+
+```
+energy_used   uint64   // gas covered by accrued + delegated energy
+shortfall_gas uint64   // gas requiring ATOS
+atos_fee      string   // shortfall_gas × insufficient_gas_price
+free          bool     // true if every msg is subsidized
+```
+
+It runs the same code path as the ante-handler (`EstimateConsume`) without committing state.
+
+## Querying energy state
+
+```bash
+# Settled account state + current capacity ceilings.
+atoshid query energy account <address>
+#   settled.tx_energy_accrued      spendable TxEnergy
+#   settled.deploy_energy_accrued  spendable DeployEnergy
+#   settled.delegated_in_usable    lent to me by others
+#   settled.delegated_out          I lent to others
+#   settled.locked_atos            ATOS frozen by my outbound delegations
+#   tx_energy_capacity             upper bound at my current balance
+#   deploy_energy_capacity         constant DeployEnergy ceiling
+
+# Active delegations. direction ∈ {out, in, all} (default all).
+atoshid query energy delegations <address> [direction]
+
+# Module parameters.
+atoshid query energy params
+```
+
+REST equivalents live under `/atoshi/energy/v1/` (`account/{address}`, `delegations/{address}`, `params`, `estimate_fee`).
 
 ## Parameters
 
-All governance-tunable. Default values in `types/helpers.go`:
+All governance-tunable via `MsgUpdateParams` (authority = gov module). Defaults in `types/helpers.go`:
 
 | Param | Default | Notes |
 |---|---|---|
-| `energy_enabled` | true | Master switch; if false, falls back to standard SDK fee deduction |
+| `energy_enabled` | `true` | Master switch; if false, the ante-handler falls back to standard SDK fee deduction. Accrued energy and delegations are preserved. |
 | `tx_energy_holding_threshold` | 30,000 × 10^18 aatos | ATOS per capacity block |
 | `tx_energy_per_threshold` | 50,000 | TxEnergy units per block |
-| `tx_energy_max_accrue_window` | 86,400 (sec) | Refill from 0 to cap takes this long |
-| `deploy_holding_threshold` | 1,000,000 × 10^18 aatos | ATOS per deploy capacity block |
-| `deploy_energy_capacity` | 800,000 | DeployEnergy per block (NOT per-threshold-times-blocks; this IS the cap) |
-| `deploy_recover_days` | 10 | Refill window |
-| `insufficient_gas_price` | 0.0021 aatos / gas | Shortfall fee rate, also floor for user offers |
+| `tx_energy_max_accrue_window` | 86,400 (s) | Time to refill from 0 to cap |
+| `deploy_holding_threshold` | 1,000,000 × 10^18 aatos | ATOS per deploy unit |
+| `deploy_energy_capacity` | 800,000 | **Constant** DeployEnergy ceiling (not a per-block multiplier) |
+| `deploy_recover_days` | 10 | Refill window at one unit; larger holdings refill proportionally faster |
+| `insufficient_gas_price` | 0.0021 aatos/gas | Shortfall fee rate, also the ceiling on user-offered price |
 | `subsidized_msg_type_urls` | (see list above) | Always-free messages |
-| `privacy_relayer_whitelist` | empty | Reserved for future privacy module integration |
+| `privacy_relayer_whitelist` | empty | Reserved for privacy-module L2 quota mapping |
 
-Note: `deploy_energy_capacity` is named confusingly. It is the maximum capacity for an account at exactly one threshold block; total capacity is `units × deploy_energy_capacity`. The name is preserved for backward compatibility with genesis state.
+The protocol default delegation duration (`604800 s` = 7 days) is a code constant (`types.DefaultDelegationDurationSeconds`), applied by the msg server when a delegation is submitted with `duration_seconds == 0`; it is not a governance param.
 
 ## Events
-
-Emitted as standard SDK events on the tx (or block, for `_expired`):
 
 | Event | Attributes | When |
 |---|---|---|
@@ -267,49 +379,37 @@ Emitted as standard SDK events on the tx (or block, for `_expired`):
 | `energy_undelegated` | `delegation_id`, `delegator`, `delegatee`, `amount` | On successful `MsgUndelegateEnergy` |
 | `energy_delegation_expired` | `delegation_id`, `delegator`, `delegatee`, `amount` | EndBlocker, when `expires_at < now` |
 
-`energy_undelegated` and `energy_delegation_expired` share the keeper code path (`releaseDelegation`), so their attribute sets are identical. Consumers distinguish them by event `type`. Important: `energy_delegation_expired` is emitted at block level, not in a tx — it is not retrievable via `cosmos/tx/v1beta1/txs?query=...`.
+`energy_undelegated` and `energy_delegation_expired` share the `releaseDelegation` code path, so their attribute sets are identical — consumers distinguish them by event `type`. `energy_delegation_expired` is emitted at **block level**, not in a tx (see the expiry note above).
+
+## The EVM boundary
+
+EVM transactions (`/ethermint.evm.v1.MsgEthereumTx`), including contract-creation txs, are **not** processed by the energy module. The EVM ante chain (`MonoDecorator`) handles their gas in standard ATOS. `isContractDeployMsg` therefore only recognizes native Cosmos deploy messages; the previously-present `MsgEthereumTx` branch was unreachable and was removed. If and when EVM gas is bridged to energy, this is the seam that changes. See [Cosmos L1](../architecture/02-cosmos-l1.md).
 
 ## Edge cases and operator notes
 
-### What if balance drops below threshold after accrual?
+**Balance drops below threshold after accrual.** The cap-down in `ApplyBalanceChange` clips `tx_energy_accrued` to the new lower capacity at the moment the balance changes (floored at `delegated_out`). Accrued energy above the new cap is forfeited.
 
-The cap-down step in `OnBalanceChange` clips `tx_energy_accrued` to the new (lower) capacity at the moment the balance changes. Already-accrued energy above the new cap is forfeited.
+**Delegator's free balance vs. locked collateral.** Can never invert — the collateral is *moved* to the module account, not earmarked in the user's balance, so it is bank-isolated. Staking slashing during the delegation can still hit non-locked stake, but the delegation collateral is safe.
 
-### What if a delegator's free balance falls below their locked collateral?
+**Two delegations to the same delegatee.** Compose — `delegated_in_usable` sums across all inbound grants. Each record is independent; when one expires only its share returns, the other(s) stay active. Burn is attributed soonest-expiring-first.
 
-It can't — the collateral is *moved* to the module account, not earmarked in the user's balance. The locked ATOS is bank-isolated. Slashing during the delegation period can still hit non-locked stake, but the delegation collateral is safe.
+**Self-delegation.** Rejected with `ErrSelfDelegation`. It would be a no-op that only muddies bookkeeping.
 
-### Can two delegations to the same delegatee compose?
-
-Yes. The delegatee's `delegated_in_usable` is the sum across all incoming delegations. Each contributor's record is independent — when one expires, only its share returns; the other(s) remain active.
-
-### What stops me from delegating to myself?
-
-The keeper rejects `delegator == delegatee` with `ErrSelfDelegation`. Self-delegation would be a no-op (lock ATOS, lend yourself energy, take it back when you call consume), but the keeper rejects it to keep the bookkeeping clean.
-
-### Why is collateral the ATOS that "would have backed" the lent capacity?
-
-Imagine you hold 30,000 ATOS (50,000 energy capacity) and delegate 10,000 energy to me. If you didn't lock any ATOS, you would still have 50,000 capacity AND have given me an extra 10,000 — net 60,000 units of capacity from 30,000 ATOS, an infinite loop of you delegating and reclaiming. Locking the ATOS makes your real capacity drop while the delegation is active, balancing the books.
-
-The "ceil" in the collateral formula errs on the side of over-locking; over-collateralization is safe (extra ATOS unlocks on release), but under-collateralization breaks the invariant.
-
-### Race conditions
-
-All keeper operations execute under the SDK's serial transaction model — there is no within-block concurrency. `Settle` is idempotent in the same block. The lazy-settle pattern means you cannot observe stale energy values from outside the chain: the `Account` query path calls `SimulateSettle` before returning.
+**Race conditions.** All keeper operations run under the SDK's serial transaction model — no within-block concurrency. `Settle` is idempotent within a block.
 
 ## Related modules
 
-- **`x/bank`** — energy capacity depends on bank balance via `EligibleBalance(addr)`. The bank send hook calls `energy.OnBalanceChange` so capacity reflects balance changes immediately.
-- **`x/tokenomics`** — claim messages (`MsgClaimMigrationTokens`, etc.) are subsidized so users with no energy can still claim their unlocks.
+- **`x/bank`** — capacity depends on bank balance via `EligibleBalance(addr) = bank − locked_atos`. The bank send hook (`SendRestriction`) calls `ApplyBalanceChange` so capacity reflects transfers immediately.
+- **`x/tokenomics`** — claim messages are subsidized so users with no energy can still claim unlocks.
 - **`x/oracle`** — `MsgReportPrice` is subsidized so feeders can post prices without holding ATOS.
-- **`x/evm`** — currently bypassed by energy. EVM txs always pay standard ATOS gas. See [Cosmos L1](../architecture/02-cosmos-l1.md) for the boundary.
+- **`x/evm`** — bypassed by energy; EVM txs pay standard ATOS gas. See [The EVM boundary](#the-evm-boundary).
 
 ## Further reading
 
-- [Gas and energy economics](../economics/03-gas-fee.md) — fee curves, sensitivity to parameter changes, monetary analysis
-- [Wallet integration handbook](../reference/wallet-integration.md) — how to display energy in a wallet UI
+- [Gas and energy economics](../economics/03-gas-fee.md) — fee curves, parameter sensitivity, monetary analysis
+- [Wallet integration handbook](../reference/wallet-integration.md) — displaying energy in a wallet UI
 - [API reference](../reference/api-guide.md#energy) — all REST endpoints under `/atoshi/energy/v1/`
 
 ---
 
-*Last reviewed: 2026-05-21*
+*Last reviewed: 2026-07-10*
