@@ -5,3 +5,7 @@
 .idea/
 .vscode/
 node_modules/
+
+# MkDocs build
+site/
+site_src/

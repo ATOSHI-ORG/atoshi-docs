@@ -314,7 +314,7 @@ cp /opt/atoshi/upgrades/<version>/atoshid /usr/local/bin/atoshid
 systemctl start atoshid
 ```
 
-On restart the node runs the upgrade handler. For a state-migration upgrade you'll see the handler's log line (e.g. an "energy snapshot refresh complete, accounts_refreshed=N" style message for the energy snapshot migration that shipped in v20.1 — see [Governance module, Case study 3](../modules/09-governance.md#case-study-3--v201-software-upgrade-passed)).
+On restart the node runs the upgrade handler. For a state-migration upgrade you'll see the handler's log line (e.g. an "energy snapshot refresh complete, accounts_refreshed=N" style message for the energy snapshot migration that shipped in v20.1 — see [Governance module, Case study 3](../modules/09-governance.md)).
 
 ### 6.4 Verify the fix landed
 

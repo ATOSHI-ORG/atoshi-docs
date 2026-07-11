@@ -1,0 +1,85 @@
+site_name: Atoshi Documentation
+site_description: Canonical technical documentation for the Atoshi Chain
+site_url: https://docs.atoshi.org/
+repo_url: https://github.com/ATOSHI-ORG/atoshi-docs
+repo_name: ATOSHI-ORG/atoshi-docs
+
+# Content lives at the repo root (README.md, modules/, economics/, …). The
+# deploy workflow assembles a copy into site_src/ at build time, so the repo
+# layout stays unchanged and README.md keeps rendering on GitHub.
+docs_dir: site_src
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.tracking
+    - search.suggest
+    - content.code.copy
+    - toc.follow
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.details
+
+plugins:
+  - search
+
+nav:
+  - Home: README.md
+  - Overview: 00-overview.md
+  - Architecture:
+      - High-level architecture: architecture/01-overview.md
+      - Cosmos SDK L1 (EVM): architecture/02-cosmos-l1.md
+      - Polygon CDK zkEVM L2: architecture/03-polygon-l2.md
+      - L1 ↔ L2 bridge: architecture/04-bridge.md
+      - Accounts & keys: architecture/05-accounts.md
+  - Modules:
+      - Energy: modules/01-energy.md
+      - Tokenomics: modules/02-tokenomics.md
+      - Oracle: modules/03-oracle.md
+      - Bank: modules/04-bank.md
+      - EVM: modules/05-evm.md
+      - Bridge: modules/06-bridge.md
+      - Privacy: modules/07-privacy.md
+      - Staking: modules/08-staking.md
+      - Governance: modules/09-governance.md
+  - Economics:
+      - Supply & circulation: economics/01-supply.md
+      - Release schedule: economics/02-release-schedule.md
+      - Gas & energy: economics/03-gas-fee.md
+      - Block rewards: economics/04-block-rewards.md
+      - Burn & recycle: economics/05-burn-recycle.md
+  - Privacy deep-dive:
+      - Threat model: privacy/01-threat-model.md
+      - Shield pool: privacy/02-shield-pool.md
+      - ZK circuits: privacy/03-zk-circuits.md
+      - Energy settlement: privacy/04-energy-settlement.md
+  - Reference:
+      - API guide: reference/api-guide.md
+      - Wallet integration: reference/wallet-integration.md
+      - Node operation: reference/node-operation.md
+      - Governance runbook: reference/governance-runbook.md
+      - Glossary: reference/glossary.md
+      - FAQ: reference/faq.md

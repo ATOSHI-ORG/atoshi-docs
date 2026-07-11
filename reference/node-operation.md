@@ -23,7 +23,7 @@ The chain id encodes the EVM numeric chain id: `atoshi_<evmChainId>-<epoch>`. Us
 | CometBFT RPC | `https://rpc.atoshi.org/rpc` | Tendermint/CometBFT JSON-RPC (`:26657`) — `block`, `block_search`, `tx_search`, `status` |
 | Explorer | `https://explorer.atoshi.org` | L1 block explorer |
 | Wallet history API | `https://explorer.atoshi.org/example-api` | Address transaction history service hosted alongside the explorer |
-| Archive node (P2P) | `archive.atoshi.org` | Public archive node offering P2P for state sync / peering (see [§5](#5-join-a-live-network-full--archive-node)) |
+| Archive node (P2P) | `archive.atoshi.org` | Public archive node offering P2P for state sync / peering (see [§5](#5-join-a-live-network-full-or-archive-node)) |
 
 ### Testnet
 
@@ -199,7 +199,7 @@ curl -s http://localhost:26657/status | jq '.result.sync_info | {latest_block_he
 
 ---
 
-## 5. Join a live network (full / archive node)
+## 5. Join a live network (full or archive node)
 
 To sync a node against **mainnet** or **testnet** without being a validator, peer with the public **archive node**, which is what Atoshi exposes for outside P2P.
 
