@@ -83,7 +83,7 @@ Subsidized message types (e.g. `MsgDelegateEnergy`, `MsgUndelegateEnergy`, on-ch
 
 ### 2. Token release driven by on-chain price
 
-ATOS supply unlocks on a schedule that depends on real ATOS/USD price observed by the on-chain oracle. The chain tracks four tiers (T0–T3); each tier corresponds to a price band. Sustained presence in a higher tier accelerates the release of miner and project-treasury allocations. Time spent below a tier rolls back the counter.
+ATOS supply unlocks on a schedule that depends on the real ATOS/USD price and 24h volume observed by the on-chain oracle. The chain tracks an **escalating ladder** of price/volume tiers (T0, T1, …, each floor ×1.1 above the last). Sustaining both floors for 30 consecutive epochs releases 5% of circulating supply from the miner and project pools. A single epoch below either floor resets the counter.
 
 This couples token issuance to demand — the supply curve is endogenous, not pre-determined. See [Tokenomics module](./modules/02-tokenomics.md) and [Release schedule](./economics/02-release-schedule.md).
 

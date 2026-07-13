@@ -45,6 +45,57 @@ markdown_extensions:
 
 plugins:
   - search
+  - i18n:
+      docs_structure: suffix          # foo.md = English (default), foo.zh.md = Chinese
+      fallback_to_default: true       # pages without a .zh.md fall back to English
+      reconfigure_material: true      # add the EN / 中文 header switcher automatically
+      reconfigure_search: true
+      languages:
+        - locale: en
+          name: English
+          default: true
+          build: true
+        - locale: zh
+          name: 简体中文
+          build: true
+          site_name: Atoshi 文档
+          nav_translations:
+            Home: 首页
+            Overview: 概览
+            Architecture: 架构
+            High-level architecture: 整体架构
+            Cosmos SDK L1 (EVM): Cosmos SDK L1（EVM）
+            Polygon CDK zkEVM L2: Polygon CDK zkEVM L2
+            L1 ↔ L2 bridge: L1 ↔ L2 跨层桥
+            Accounts & keys: 账户与密钥
+            Modules: 模块
+            Energy: 能量
+            Tokenomics: 代币经济
+            Oracle: 预言机
+            Bank: 银行（转账）
+            EVM: EVM
+            Bridge: 跨层桥
+            Privacy: 隐私
+            Staking: 质押
+            Governance: 治理
+            Economics: 经济模型
+            Supply & circulation: 供应与流通
+            Release schedule: 释放计划
+            Gas & energy: Gas 与能量
+            Block rewards: 区块奖励
+            Burn & recycle: 销毁与回收
+            Privacy deep-dive: 隐私深入
+            Threat model: 威胁模型
+            Shield pool: 隐私池
+            ZK circuits: ZK 电路
+            Energy settlement: 能量结算
+            Reference: 参考
+            API guide: API 指南
+            Wallet integration: 钱包集成
+            Node operation: 节点运维
+            Governance runbook: 治理操作手册
+            Glossary: 术语表
+            FAQ: 常见问题
 
 nav:
   - Home: README.md

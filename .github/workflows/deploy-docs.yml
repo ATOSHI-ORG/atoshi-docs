@@ -30,14 +30,14 @@ jobs:
           python-version: "3.12"
 
       - name: Install MkDocs Material
-        run: pip install "mkdocs-material>=9.5"
+        run: pip install "mkdocs-material>=9.5" "mkdocs-static-i18n>=1.2"
 
       - name: Assemble docs sources
         run: |
           rm -rf site_src
           mkdir -p site_src
-          cp README.md site_src/README.md   # MkDocs treats README.md as the home page; ../README.md back-links resolve
-          cp 00-overview.md site_src/
+          cp README*.md site_src/          # README.md (home) + README.zh.md if present
+          cp 00-overview*.md site_src/      # English + .zh.md translations
           cp -r architecture economics modules privacy reference assets site_src/
 
       - name: Build site
