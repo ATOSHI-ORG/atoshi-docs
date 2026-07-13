@@ -1,6 +1,10 @@
 site_name: Atoshi Documentation
 site_description: Canonical technical documentation for the Atoshi Chain
-site_url: https://docs.atoshi.org/
+# Must match the ACTUAL deployment base — the language switcher / alternate
+# links are derived from it. This is the GitHub Pages project URL (note the
+# /atoshi-docs/ path). If you later attach the custom domain docs.atoshi.org,
+# change this to https://docs.atoshi.org/ .
+site_url: https://atoshi-org.github.io/atoshi-docs/
 repo_url: https://github.com/ATOSHI-ORG/atoshi-docs
 repo_name: ATOSHI-ORG/atoshi-docs
 
