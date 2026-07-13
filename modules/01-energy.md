@@ -16,7 +16,7 @@ Hold ATOS → earn the right to transact for free, at a rate proportional to you
 
 Specifically:
 
-- Holding **30,000 ATOS** unlocks **50,000 TxEnergy capacity**, refilled linearly over **24 hours**.
+- Holding **30,000 ATOS** unlocks **220,000 TxEnergy capacity**, refilled linearly over **24 hours**.
 - Holding **1,000,000 ATOS** additionally unlocks **800,000 DeployEnergy capacity**, refilled linearly over **10 days**.
 - Both are `uint64` counters tracked per account.
 - TxEnergy can be **delegated** (lent) to another account for a fixed duration; the corresponding ATOS is locked as collateral. DeployEnergy cannot be delegated.
@@ -86,14 +86,14 @@ threshold_blocks = floor(eligible_balance / TxEnergyHoldingThreshold)
 tx_energy_capacity = threshold_blocks × TxEnergyPerThreshold      (saturating on overflow)
 ```
 
-With default params (`TxEnergyHoldingThreshold = 30,000 ATOS`, `TxEnergyPerThreshold = 50,000`):
+With default params (`TxEnergyHoldingThreshold = 30,000 ATOS`, `TxEnergyPerThreshold = 220,000`):
 
 | Eligible balance | Capacity |
 |---|---|
 | 0 – 29,999 ATOS | 0 |
-| 30,000 – 59,999 ATOS | 50,000 |
-| 60,000 – 89,999 ATOS | 100,000 |
-| 1,000,000 ATOS | 1,650,000 |
+| 30,000 – 59,999 ATOS | 220,000 |
+| 60,000 – 89,999 ATOS | 440,000 |
+| 1,000,000 ATOS | 7,260,000 |
 
 The step function is deliberate: it makes the holding requirement unambiguous and easy to communicate ("hold 30,000 ATOS to transact for free"). A linear function would let attackers earn near-zero capacity by holding dust.
 
@@ -124,13 +124,13 @@ add     = (cap × elapsed) / TxEnergyMaxAccrueWindow          // multiply-before
 new_accrued = min(tx_energy_accrued + add, cap)
 ```
 
-`TxEnergyMaxAccrueWindow` defaults to 86,400 (24h). The multiply-before-divide ordering matters: a naive `(cap / window) × elapsed` truncates to zero for any sub-window interval (`50000 / 86400 == 0` in integer math). All intermediate products use saturating arithmetic so a governance re-tune can never wrap `uint64`.
+`TxEnergyMaxAccrueWindow` defaults to 86,400 (24h). The multiply-before-divide ordering matters: a naive `(cap / window) × elapsed` loses precision — `220000 / 86400 = 2` per second discards the fractional 0.546, and for smaller caps it truncates to zero outright. All intermediate products use saturating arithmetic so a governance re-tune can never wrap `uint64`.
 
-**Worked example (TxEnergy).** Alice holds 30,000 ATOS, so `cap = 50,000`. Rate = 50,000 / 86,400 ≈ **0.5787 energy/second**.
+**Worked example (TxEnergy).** Alice holds 30,000 ATOS, so `cap = 220,000`. Rate = 220,000 / 86,400 ≈ **2.546 energy/second**.
 
-- Start empty. After 1 hour (3,600 s): `add = 50,000 × 3,600 / 86,400 = 2,083`. Accrued ≈ 2,083.
-- After 12 hours: `add = 50,000 × 43,200 / 86,400 = 25,000`. Accrued = 25,000 (half the cap).
-- After 24 hours: accrued hits the 50,000 cap and stops. Holding longer does not overfill.
+- Start empty. After 1 hour (3,600 s): `add = 220,000 × 3,600 / 86,400 = 9,166`. Accrued ≈ 9,166.
+- After 12 hours: `add = 220,000 × 43,200 / 86,400 = 110,000`. Accrued = 110,000 (half the cap).
+- After 24 hours: accrued hits the 220,000 cap and stops. Holding longer does not overfill.
 
 **Worked example (DeployEnergy).** DeployEnergy rate is `(units × DeployEnergyCapacity × elapsed) / (DeployRecoverDays × 86,400)` where `units = floor(eligible_balance / DeployHoldingThreshold)`.
 
@@ -158,7 +158,7 @@ That third step (cap-down) is critical: an account that sells most of its ATOS m
 - `bank.GetBalance(from)` already reflects the subtraction → do **not** subtract `moved` again.
 - `bank.GetBalance(to)` is still pre-addition → **add** `moved` to project the post-receive balance.
 
-The pre-fix code double-subtracted on the sender side, silently shaving one `moved` worth of eligible balance off the snapshot on *every* transfer — for a 30,000-ATOS movement that is exactly one threshold block, i.e. capacity dropped by 50,000 energy per send. This was the production "5万 ATOS 凭空消失" (50k ATOS vanishing) fingerprint on testnet account `0x30F288…`. The fix is documented inline in `keeper/send_restriction.go`.
+The pre-fix code double-subtracted on the sender side, silently shaving one `moved` worth of eligible balance off the snapshot on *every* transfer — for a 30,000-ATOS movement that is exactly one threshold block, i.e. capacity dropped by 50,000 energy per send (the per-threshold capacity in effect at the time of the incident). This was the production "5万 ATOS 凭空消失" (50k ATOS vanishing) fingerprint on testnet account `0x30F288…`. The fix is documented inline in `keeper/send_restriction.go`.
 
 ## Consumption: the ante-handler pipeline
 
@@ -252,7 +252,7 @@ locked_atos     = threshold_units × TxEnergyHoldingThreshold
 
 You must lock the bank balance that *would have backed* the lent capacity — the TRON-style freeze model. This prevents lending energy you do not actually back with stake.
 
-**Rounding is up, to whole threshold blocks.** With defaults, delegating any amount from 1 up to 50,000 energy locks the full **30,000 ATOS**. Delegating 50,001 locks **60,000 ATOS**. Wallet UIs must surface this — users will otherwise be surprised that lending "a little" energy freezes a whole block of ATOS.
+**Rounding is up, to whole threshold blocks.** With defaults, delegating any amount from 1 up to 220,000 energy locks the full **30,000 ATOS**. Delegating 220,001 locks **60,000 ATOS**. Wallet UIs must surface this — users will otherwise be surprised that lending "a little" energy freezes a whole block of ATOS.
 
 ### Delegate flow (keeper `Delegate`)
 
@@ -359,7 +359,7 @@ All governance-tunable via `MsgUpdateParams` (authority = gov module). Defaults 
 |---|---|---|
 | `energy_enabled` | `true` | Master switch; if false, the ante-handler falls back to standard SDK fee deduction. Accrued energy and delegations are preserved. |
 | `tx_energy_holding_threshold` | 30,000 × 10^18 aatos | ATOS per capacity block |
-| `tx_energy_per_threshold` | 50,000 | TxEnergy units per block |
+| `tx_energy_per_threshold` | 220,000 | TxEnergy units per block |
 | `tx_energy_max_accrue_window` | 86,400 (s) | Time to refill from 0 to cap |
 | `deploy_holding_threshold` | 1,000,000 × 10^18 aatos | ATOS per deploy unit |
 | `deploy_energy_capacity` | 800,000 | **Constant** DeployEnergy ceiling (not a per-block multiplier) |

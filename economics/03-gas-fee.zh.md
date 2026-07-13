@@ -53,7 +53,7 @@ ante 流水线支付不同的手续费:
 详见 [`x/energy`](../modules/01-energy.md)。摘要:
 
 拥有合格余额 B 的用户具有:
-- `TxEnergyCapacity = floor(B / 30,000 ATOS) × 50,000` 单位
+- `TxEnergyCapacity = floor(B / 30,000 ATOS) × 220,000` 单位
 - 在 `tx_energy_max_accrue_window`(默认 24h)内线性回填
 
 当一笔 `gas_limit = G` 的 Cosmos 交易到来时:

@@ -53,7 +53,7 @@ and do NOT share the energy meter. They share only the destination
 Detailed in [`x/energy`](../modules/01-energy.md). Summary:
 
 A user with eligible balance B has:
-- `TxEnergyCapacity = floor(B / 30,000 ATOS) × 50,000` units
+- `TxEnergyCapacity = floor(B / 30,000 ATOS) × 220,000` units
 - Refilling linearly over `tx_energy_max_accrue_window` (24h default)
 
 When a Cosmos tx with `gas_limit = G` arrives:

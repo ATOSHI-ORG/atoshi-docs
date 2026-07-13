@@ -31,7 +31,7 @@ Most chains solve (1) and (2) by sacrificing (3): gas pricing in volatile native
 
 If you hold enough ATOS, your wallet *accrues* transaction capacity (we call it "energy") at a fixed rate, capped by your balance. Spending energy is free at the token level — only the underlying ATOS holding requirement is enforced.
 
-A user holding 30,000 ATOS gets 50,000 gas units of free transaction capacity every 24 hours, refilling continuously. A user holding 1,000,000 ATOS additionally gets free contract-deployment capacity. Users who hold less, or who want to send more than their capacity, fall back to standard gas-priced transactions — but the floor is low.
+A user holding 30,000 ATOS gets 220,000 gas units of free transaction capacity every 24 hours, refilling continuously. A user holding 1,000,000 ATOS additionally gets free contract-deployment capacity. Users who hold less, or who want to send more than their capacity, fall back to standard gas-priced transactions — but the floor is low.
 
 ## Why dual-layer
 
@@ -74,7 +74,7 @@ These are the decisions that distinguish Atoshi. Each is detailed in its own cha
 
 Standard EVM chains charge `gasPrice * gasUsed` in the native token for every transaction. Atoshi's L1 Cosmos chain replaces this with a two-tier model:
 
-1. **Energy first.** The signer's account accrues `TxEnergy` continuously, capped at `floor(balance / 30,000 ATOS) × 50,000` units. Each transaction consumes from this pool.
+1. **Energy first.** The signer's account accrues `TxEnergy` continuously, capped at `floor(balance / 30,000 ATOS) × 220,000` units. Each transaction consumes from this pool.
 2. **ATOS fallback.** If energy is insufficient, the chain charges the *shortfall* in ATOS at a fixed price (currently 0.0021 aatos per gas unit). Users who hold enough never see this.
 
 Energy regenerates linearly over 24 hours regardless of holding (as long as the holding threshold is met). It cannot be transferred at the token level, but can be *delegated* — an account can lend energy to another for a fixed duration, by locking the corresponding ATOS as collateral. This enables sponsored-transaction services without giving up custody.

@@ -323,7 +323,7 @@ Query whatever the upgrade was supposed to change. For the v20.1 energy-snapshot
 ```bash
 $BIN query energy account <affected-account> --home $NODE_HOME
 # last_balance_snapshot should equal the account's real current bank balance,
-# and tx_energy_capacity should equal floor(balance / 30000) * 50000
+# and tx_energy_capacity should equal floor(balance / 30000) * 220000
 ```
 
 ---
