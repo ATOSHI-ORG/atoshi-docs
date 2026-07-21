@@ -1,0 +1,784 @@
+{
+  "app_name": "atoshid",
+  "app_version": "9292379",
+  "genesis_time": "2026-06-21T12:11:21.72873719Z",
+  "chain_id": "atoshi_88288-1",
+  "initial_height": 1,
+  "app_hash": null,
+  "app_state": {
+    "07-tendermint": null,
+    "auth": {
+      "params": {
+        "max_memo_characters": "256",
+        "tx_sig_limit": "7",
+        "tx_size_cost_per_byte": "10",
+        "sig_verify_cost_ed25519": "590",
+        "sig_verify_cost_secp256k1": "1000"
+      },
+      "accounts": [
+        {
+          "@type": "/cosmos.auth.v1beta1.BaseAccount",
+          "address": "atoshi17s2dmzfhyd4fpn2wx0lp5njm9jtqpfvp75qp3j",
+          "pub_key": null,
+          "account_number": "0",
+          "sequence": "0"
+        },
+        {
+          "@type": "/cosmos.auth.v1beta1.BaseAccount",
+          "address": "atoshi1cmu8uwwaxjm867g4m6zyz7289vmxckf0we3645",
+          "pub_key": null,
+          "account_number": "1",
+          "sequence": "0"
+        },
+        {
+          "@type": "/cosmos.auth.v1beta1.BaseAccount",
+          "address": "atoshi13hvpu9xr2dgyzxswvj5uv6wmkgx97565zu6ael",
+          "pub_key": null,
+          "account_number": "2",
+          "sequence": "0"
+        },
+        {
+          "@type": "/cosmos.auth.v1beta1.BaseAccount",
+          "address": "atoshi1z8pa029gk6da84lmuk2auv3k74qk3a6yrx3n4g",
+          "pub_key": null,
+          "account_number": "3",
+          "sequence": "0"
+        }
+      ]
+    },
+    "authz": {
+      "authorization": []
+    },
+    "bank": {
+      "params": {
+        "send_enabled": [],
+        "default_send_enabled": true
+      },
+      "balances": [
+        {
+          "address": "atoshi1z8pa029gk6da84lmuk2auv3k74qk3a6yrx3n4g",
+          "coins": [
+            {
+              "denom": "aatos",
+              "amount": "100000000000000000000000000"
+            }
+          ]
+        },
+        {
+          "address": "atoshi13hvpu9xr2dgyzxswvj5uv6wmkgx97565zu6ael",
+          "coins": [
+            {
+              "denom": "aatos",
+              "amount": "100000000000000000000000000"
+            }
+          ]
+        },
+        {
+          "address": "atoshi1cmu8uwwaxjm867g4m6zyz7289vmxckf0we3645",
+          "coins": [
+            {
+              "denom": "aatos",
+              "amount": "100000000000000000000000000"
+            }
+          ]
+        },
+        {
+          "address": "atoshi17s2dmzfhyd4fpn2wx0lp5njm9jtqpfvp75qp3j",
+          "coins": [
+            {
+              "denom": "aatos",
+              "amount": "100000000000000000000000000"
+            }
+          ]
+        }
+      ],
+      "supply": [
+        {
+          "denom": "aatos",
+          "amount": "400000000000000000000000000"
+        }
+      ],
+      "denom_metadata": [
+        {
+          "description": "The native EVM, governance and staking token of the Atoshi testnet",
+          "denom_units": [
+            {
+              "denom": "aatos",
+              "exponent": 0,
+              "aliases": []
+            },
+            {
+              "denom": "ATOStest",
+              "exponent": 18,
+              "aliases": []
+            }
+          ],
+          "base": "aatos",
+          "display": "ATOStest",
+          "name": "Atoshi (Testnet)",
+          "symbol": "ATOStest"
+        }
+      ],
+      "send_enabled": []
+    },
+    "capability": {
+      "index": "1",
+      "owners": []
+    },
+    "consensus": null,
+    "distribution": {
+      "params": {
+        "community_tax": "0.020000000000000000",
+        "base_proposer_reward": "0.000000000000000000",
+        "bonus_proposer_reward": "0.000000000000000000",
+        "withdraw_addr_enabled": true
+      },
+      "fee_pool": {
+        "community_pool": []
+      },
+      "delegator_withdraw_infos": [],
+      "previous_proposer": "",
+      "outstanding_rewards": [],
+      "validator_accumulated_commissions": [],
+      "validator_historical_rewards": [],
+      "validator_current_rewards": [],
+      "delegator_starting_infos": [],
+      "validator_slash_events": []
+    },
+    "energy": {
+      "params": {
+        "energy_enabled": true,
+        "tx_energy_holding_threshold": "30000000000000000000000",
+        "tx_energy_per_threshold": 220000,
+        "tx_energy_max_accrue_window": 86400,
+        "deploy_holding_threshold": "1000000000000000000000000",
+        "deploy_energy_capacity": 800000,
+        "deploy_recover_days": 10,
+        "insufficient_gas_price": "0.002100000000000000",
+        "subsidized_msg_type_urls": [
+          "/atoshi.tokenomics.v1.MsgClaimMigrationTokens",
+          "/atoshi.tokenomics.v1.MsgClaimMinerLockedReward",
+          "/atoshi.tokenomics.v1.MsgClaimProjectTreasuryReward",
+          "/atoshi.oracle.v1.MsgReportPrice",
+          "/atoshi.energy.v1.MsgDelegateEnergy",
+          "/atoshi.energy.v1.MsgUndelegateEnergy"
+        ]
+      },
+      "accounts": [],
+      "delegations": [],
+      "next_delegation_id": 1
+    },
+    "epochs": {
+      "epochs": [
+        {
+          "identifier": "week",
+          "start_time": "0001-01-01T00:00:00Z",
+          "duration": "604800s",
+          "current_epoch": "0",
+          "current_epoch_start_time": "0001-01-01T00:00:00Z",
+          "epoch_counting_started": false,
+          "current_epoch_start_height": "0"
+        },
+        {
+          "identifier": "day",
+          "start_time": "0001-01-01T00:00:00Z",
+          "duration": "86400s",
+          "current_epoch": "0",
+          "current_epoch_start_time": "0001-01-01T00:00:00Z",
+          "epoch_counting_started": false,
+          "current_epoch_start_height": "0"
+        }
+      ]
+    },
+    "erc20": {
+      "params": {
+        "enable_erc20": true,
+        "native_precompiles": [
+          "0xD4949664cD82660AaE99bEdc034a0deA8A0bd517"
+        ],
+        "dynamic_precompiles": []
+      },
+      "token_pairs": [
+        {
+          "erc20_address": "0xD4949664cD82660AaE99bEdc034a0deA8A0bd517",
+          "denom": "aatos",
+          "enabled": true,
+          "contract_owner": "OWNER_MODULE"
+        }
+      ]
+    },
+    "evidence": {
+      "evidence": []
+    },
+    "evm": {
+      "accounts": [],
+      "params": {
+        "extra_eips": [
+          "ethereum_3855"
+        ],
+        "allow_unprotected_txs": false,
+        "evm_channels": [
+          "channel-10",
+          "channel-31",
+          "channel-83"
+        ],
+        "access_control": {
+          "create": {
+            "access_type": "ACCESS_TYPE_PERMISSIONLESS",
+            "access_control_list": []
+          },
+          "call": {
+            "access_type": "ACCESS_TYPE_PERMISSIONLESS",
+            "access_control_list": []
+          }
+        },
+        "active_static_precompiles": [
+          "0x0000000000000000000000000000000000000100",
+          "0x0000000000000000000000000000000000000400",
+          "0x0000000000000000000000000000000000000800",
+          "0x0000000000000000000000000000000000000801",
+          "0x0000000000000000000000000000000000000802",
+          "0x0000000000000000000000000000000000000803",
+          "0x0000000000000000000000000000000000000804",
+          "0x0000000000000000000000000000000000000805"
+        ]
+      }
+    },
+    "feegrant": {
+      "allowances": []
+    },
+    "feemarket": {
+      "params": {
+        "no_base_fee": false,
+        "base_fee_change_denominator": 8,
+        "elasticity_multiplier": 2,
+        "enable_height": "0",
+        "base_fee": "1000000000.000000000000000000",
+        "min_gas_price": "1000000000.000000000000000000",
+        "min_gas_multiplier": "0.500000000000000000"
+      },
+      "block_gas": "0"
+    },
+    "genutil": {
+      "gen_txs": [
+        {
+          "body": {
+            "messages": [
+              {
+                "@type": "/cosmos.staking.v1beta1.MsgCreateValidator",
+                "description": {
+                  "moniker": "validator3",
+                  "identity": "",
+                  "website": "",
+                  "security_contact": "",
+                  "details": ""
+                },
+                "commission": {
+                  "rate": "0.100000000000000000",
+                  "max_rate": "0.200000000000000000",
+                  "max_change_rate": "0.010000000000000000"
+                },
+                "min_self_delegation": "1",
+                "delegator_address": "",
+                "validator_address": "atoshivaloper1z8pa029gk6da84lmuk2auv3k74qk3a6ypschpl",
+                "pubkey": {
+                  "@type": "/cosmos.crypto.ed25519.PubKey",
+                  "key": "PDKi0H5MpFS8c4JlZuL9L3i0BFgJdcDn3fv4YL9K+WY="
+                },
+                "value": {
+                  "denom": "aatos",
+                  "amount": "10000000000000000000000000"
+                }
+              }
+            ],
+            "memo": "5940c73c396d54eaba6fdbe081f2e9042cbec2ea@79.143.176.237:26656",
+            "timeout_height": "0",
+            "extension_options": [],
+            "non_critical_extension_options": []
+          },
+          "auth_info": {
+            "signer_infos": [
+              {
+                "public_key": {
+                  "@type": "/ethermint.crypto.v1.ethsecp256k1.PubKey",
+                  "key": "AmTvKeYL72+rpuC7COdwTtuJG6R7TPkUTgXC+S+UfaBe"
+                },
+                "mode_info": {
+                  "single": {
+                    "mode": "SIGN_MODE_DIRECT"
+                  }
+                },
+                "sequence": "0"
+              }
+            ],
+            "fee": {
+              "amount": [
+                {
+                  "denom": "aatos",
+                  "amount": "400000000000000"
+                }
+              ],
+              "gas_limit": "400000",
+              "payer": "",
+              "granter": ""
+            },
+            "tip": null
+          },
+          "signatures": [
+            "oL/tPtMSCKUezL850WPjRx5MRq2bw761uWyS4Y2dsaEziVgm2RtlJVXnd6qxl/5HgGoScJx0REh2D5+tjGJhAgA="
+          ]
+        },
+        {
+          "body": {
+            "messages": [
+              {
+                "@type": "/cosmos.staking.v1beta1.MsgCreateValidator",
+                "description": {
+                  "moniker": "validator1",
+                  "identity": "",
+                  "website": "",
+                  "security_contact": "",
+                  "details": ""
+                },
+                "commission": {
+                  "rate": "0.100000000000000000",
+                  "max_rate": "0.200000000000000000",
+                  "max_change_rate": "0.010000000000000000"
+                },
+                "min_self_delegation": "1",
+                "delegator_address": "",
+                "validator_address": "atoshivaloper1cmu8uwwaxjm867g4m6zyz7289vmxckf0v0c7pr",
+                "pubkey": {
+                  "@type": "/cosmos.crypto.ed25519.PubKey",
+                  "key": "DBn6dPqRWvng3t3G2RRG/AT1gMYs7OsCIu20rmW469Q="
+                },
+                "value": {
+                  "denom": "aatos",
+                  "amount": "10000000000000000000000000"
+                }
+              }
+            ],
+            "memo": "84d94bc2cf889d3847629e4919cb40e4dadd79dd@79.143.176.237:26656",
+            "timeout_height": "0",
+            "extension_options": [],
+            "non_critical_extension_options": []
+          },
+          "auth_info": {
+            "signer_infos": [
+              {
+                "public_key": {
+                  "@type": "/ethermint.crypto.v1.ethsecp256k1.PubKey",
+                  "key": "AoJLLo0nBU3dwd9Eip9Yje457RHs7bsoXaOUpOxg3hvW"
+                },
+                "mode_info": {
+                  "single": {
+                    "mode": "SIGN_MODE_DIRECT"
+                  }
+                },
+                "sequence": "0"
+              }
+            ],
+            "fee": {
+              "amount": [
+                {
+                  "denom": "aatos",
+                  "amount": "400000000000000"
+                }
+              ],
+              "gas_limit": "400000",
+              "payer": "",
+              "granter": ""
+            },
+            "tip": null
+          },
+          "signatures": [
+            "w7xndkW5vRdH+ILEvtOKIhDRgdkmM+9CPL70NAqv52c0OjmzP43sBQ1+BfDjVGxw0DNqCHOoHHX6i7Y2sDB6VAE="
+          ]
+        },
+        {
+          "body": {
+            "messages": [
+              {
+                "@type": "/cosmos.staking.v1beta1.MsgCreateValidator",
+                "description": {
+                  "moniker": "validator0",
+                  "identity": "",
+                  "website": "",
+                  "security_contact": "",
+                  "details": ""
+                },
+                "commission": {
+                  "rate": "0.100000000000000000",
+                  "max_rate": "0.200000000000000000",
+                  "max_change_rate": "0.010000000000000000"
+                },
+                "min_self_delegation": "1",
+                "delegator_address": "",
+                "validator_address": "atoshivaloper17s2dmzfhyd4fpn2wx0lp5njm9jtqpfvpuzf999",
+                "pubkey": {
+                  "@type": "/cosmos.crypto.ed25519.PubKey",
+                  "key": "1DxAjdfyyva2JxOwt4TRldardEzxAWb/87xAZdbLAOU="
+                },
+                "value": {
+                  "denom": "aatos",
+                  "amount": "10000000000000000000000000"
+                }
+              }
+            ],
+            "memo": "a9bf3ad9f7ee877b69facb042807ffda0483aa6f@79.143.176.237:26656",
+            "timeout_height": "0",
+            "extension_options": [],
+            "non_critical_extension_options": []
+          },
+          "auth_info": {
+            "signer_infos": [
+              {
+                "public_key": {
+                  "@type": "/ethermint.crypto.v1.ethsecp256k1.PubKey",
+                  "key": "A9HPw2jdPPHAm0gOa2FxjnS1alwaTKV62bAsr9YAIXEw"
+                },
+                "mode_info": {
+                  "single": {
+                    "mode": "SIGN_MODE_DIRECT"
+                  }
+                },
+                "sequence": "0"
+              }
+            ],
+            "fee": {
+              "amount": [
+                {
+                  "denom": "aatos",
+                  "amount": "400000000000000"
+                }
+              ],
+              "gas_limit": "400000",
+              "payer": "",
+              "granter": ""
+            },
+            "tip": null
+          },
+          "signatures": [
+            "lsNvOds2COgrUsCyXkRrgorC9x+3ooun3L0XRTPLr7lRL9IIoHji5gDQevSWF8yFpZ4UrJqTZrVhJ9R6GsVo1gE="
+          ]
+        },
+        {
+          "body": {
+            "messages": [
+              {
+                "@type": "/cosmos.staking.v1beta1.MsgCreateValidator",
+                "description": {
+                  "moniker": "validator2",
+                  "identity": "",
+                  "website": "",
+                  "security_contact": "",
+                  "details": ""
+                },
+                "commission": {
+                  "rate": "0.100000000000000000",
+                  "max_rate": "0.200000000000000000",
+                  "max_change_rate": "0.010000000000000000"
+                },
+                "min_self_delegation": "1",
+                "delegator_address": "",
+                "validator_address": "atoshivaloper13hvpu9xr2dgyzxswvj5uv6wmkgx97565q2nedg",
+                "pubkey": {
+                  "@type": "/cosmos.crypto.ed25519.PubKey",
+                  "key": "euu4h24Ie8jsEXTzCEQ8pYB5rmD+yxl9bGYRreh1nMI="
+                },
+                "value": {
+                  "denom": "aatos",
+                  "amount": "10000000000000000000000000"
+                }
+              }
+            ],
+            "memo": "df8588e2494306ddcc5610bd3dbc6618c5edfee8@79.143.176.237:26656",
+            "timeout_height": "0",
+            "extension_options": [],
+            "non_critical_extension_options": []
+          },
+          "auth_info": {
+            "signer_infos": [
+              {
+                "public_key": {
+                  "@type": "/ethermint.crypto.v1.ethsecp256k1.PubKey",
+                  "key": "Aiwil96SLy3WniHkmkr2S18E7wFcBw5z6BAq/iZ31Vep"
+                },
+                "mode_info": {
+                  "single": {
+                    "mode": "SIGN_MODE_DIRECT"
+                  }
+                },
+                "sequence": "0"
+              }
+            ],
+            "fee": {
+              "amount": [
+                {
+                  "denom": "aatos",
+                  "amount": "400000000000000"
+                }
+              ],
+              "gas_limit": "400000",
+              "payer": "",
+              "granter": ""
+            },
+            "tip": null
+          },
+          "signatures": [
+            "QNZn1LxqnpuoTnOtowjOBjdgZhLJnVKMBcpj/dYVq+s5O39KH33cUyopCSnEzVYz4+eLpbWWaXcjnOekTrtA8QA="
+          ]
+        }
+      ]
+    },
+    "gov": {
+      "starting_proposal_id": "1",
+      "deposits": [],
+      "votes": [],
+      "proposals": [],
+      "deposit_params": {
+        "min_deposit": [
+          {
+            "denom": "aatos"
+          }
+        ]
+      },
+      "voting_params": null,
+      "tally_params": null,
+      "params": {
+        "min_deposit": [
+          {
+            "denom": "aatos",
+            "amount": "1000000000000000000"
+          }
+        ],
+        "max_deposit_period": "300s",
+        "voting_period": "300s",
+        "quorum": "0.100000000000000000",
+        "threshold": "0.500000000000000000",
+        "veto_threshold": "0.334000000000000000",
+        "min_initial_deposit_ratio": "0.000000000000000000",
+        "proposal_cancel_ratio": "0.500000000000000000",
+        "proposal_cancel_dest": "",
+        "expedited_voting_period": "60s",
+        "expedited_threshold": "0.667000000000000000",
+        "expedited_min_deposit": [
+          {
+            "denom": "aatos",
+            "amount": "5000000000000000000"
+          }
+        ],
+        "burn_vote_quorum": false,
+        "burn_proposal_deposit_prevote": false,
+        "burn_vote_veto": true,
+        "min_deposit_ratio": "0.010000000000000000"
+      },
+      "constitution": ""
+    },
+    "ibc": {
+      "client_genesis": {
+        "clients": [],
+        "clients_consensus": [],
+        "clients_metadata": [],
+        "params": {
+          "allowed_clients": [
+            "*"
+          ]
+        },
+        "create_localhost": false,
+        "next_client_sequence": "0"
+      },
+      "connection_genesis": {
+        "connections": [],
+        "client_connection_paths": [],
+        "next_connection_sequence": "0",
+        "params": {
+          "max_expected_time_per_block": "30000000000"
+        }
+      },
+      "channel_genesis": {
+        "channels": [],
+        "acknowledgements": [],
+        "commitments": [],
+        "receipts": [],
+        "send_sequences": [],
+        "recv_sequences": [],
+        "ack_sequences": [],
+        "next_channel_sequence": "0",
+        "params": {
+          "upgrade_timeout": {
+            "height": {
+              "revision_number": "0",
+              "revision_height": "0"
+            },
+            "timestamp": "600000000000"
+          }
+        }
+      }
+    },
+    "inflation": {
+      "params": {
+        "mint_denom": "aatos",
+        "exponential_calculation": {
+          "a": "300000000.000000000000000000",
+          "r": "0.500000000000000000",
+          "c": "9375000.000000000000000000",
+          "bonding_target": "0.660000000000000000",
+          "max_variance": "0.000000000000000000"
+        },
+        "inflation_distribution": {
+          "staking_rewards": "0.533333334000000000",
+          "usage_incentives": "0.000000000000000000",
+          "community_pool": "0.466666666000000000"
+        },
+        "enable_inflation": false
+      },
+      "period": "0",
+      "epoch_identifier": "day",
+      "epochs_per_period": "365",
+      "skipped_epochs": "0"
+    },
+    "interchainaccounts": {
+      "controller_genesis_state": {
+        "active_channels": [],
+        "interchain_accounts": [],
+        "ports": [],
+        "params": {
+          "controller_enabled": true
+        }
+      },
+      "host_genesis_state": {
+        "active_channels": [],
+        "interchain_accounts": [],
+        "port": "icahost",
+        "params": {
+          "host_enabled": true,
+          "allow_messages": [
+            "*"
+          ]
+        }
+      }
+    },
+    "oracle": {
+      "params": {
+        "max_price_age_seconds": 3600,
+        "min_valid_reports": 1,
+        "denom": "aatos",
+        "twap_lookback_seconds": 86400,
+        "max_price_deviation_bps": 1000,
+        "allowed_feeders": [
+          "atoshi17s2dmzfhyd4fpn2wx0lp5njm9jtqpfvp75qp3j"
+        ]
+      },
+      "price_history": []
+    },
+    "params": null,
+    "ratelimit": {
+      "params": {},
+      "rate_limits": [],
+      "whitelisted_address_pairs": [],
+      "blacklisted_denoms": [],
+      "pending_send_packet_sequence_numbers": [],
+      "hour_epoch": {
+        "epoch_number": "0",
+        "duration": "3600s",
+        "epoch_start_time": "0001-01-01T00:00:00Z",
+        "epoch_start_height": "0"
+      }
+    },
+    "slashing": {
+      "params": {
+        "signed_blocks_window": "100",
+        "min_signed_per_window": "0.500000000000000000",
+        "downtime_jail_duration": "600s",
+        "slash_fraction_double_sign": "0.050000000000000000",
+        "slash_fraction_downtime": "0.010000000000000000"
+      },
+      "signing_infos": [],
+      "missed_blocks": []
+    },
+    "staking": {
+      "params": {
+        "unbonding_time": "1814400s",
+        "max_validators": 100,
+        "max_entries": 7,
+        "historical_entries": 10000,
+        "bond_denom": "aatos",
+        "min_commission_rate": "0.050000000000000000"
+      },
+      "last_total_power": "0",
+      "last_validator_powers": [],
+      "validators": [],
+      "delegations": [],
+      "unbonding_delegations": [],
+      "redelegations": [],
+      "exported": false
+    },
+    "tokenomics": {
+      "params": {
+        "miner_pool_total": "1000000000000000000000000000000",
+        "project_pool_total": "8900000000000000000000000000000",
+        "migration_pool_total": "100000000000000000000000000000",
+        "immediate_reward_bps": 2000,
+        "locked_reward_bps": 8000,
+        "halving_interval_blocks": 25228800,
+        "initial_block_reward": "19819000000000000000000",
+        "price_base": "0.150000000000000000",
+        "volume_base": "150000.000000000000000000",
+        "tier_multiplier": "1.100000000000000000",
+        "consecutive_days_required": 30,
+        "release_percentage_bps": 500,
+        "miner_release_share_bps": 5000,
+        "project_release_share_bps": 5000,
+        "price_check_epoch_blocks": 17280,
+        "project_treasury_address": "atoshi17s2dmzfhyd4fpn2wx0lp5njm9jtqpfvp75qp3j"
+      },
+      "release_state": {
+        "total_miner_released": "0",
+        "total_project_released": "0",
+        "total_immediate_distributed": "0",
+        "total_miner_locked": "0"
+      },
+      "block_reward_state": {
+        "total_distributed": "0"
+      },
+      "miner_locked_balances": [],
+      "project_claimable": "0"
+    },
+    "transfer": {
+      "port_id": "transfer",
+      "denom_traces": [],
+      "params": {
+        "send_enabled": true,
+        "receive_enabled": true
+      },
+      "total_escrowed": []
+    },
+    "upgrade": {},
+    "vesting": {}
+  },
+  "consensus": {
+    "params": {
+      "block": {
+        "max_bytes": "22020096",
+        "max_gas": "-1"
+      },
+      "evidence": {
+        "max_age_num_blocks": "100000",
+        "max_age_duration": "172800000000000",
+        "max_bytes": "1048576"
+      },
+      "validator": {
+        "pub_key_types": [
+          "ed25519"
+        ]
+      },
+      "version": {
+        "app": "0"
+      },
+      "abci": {
+        "vote_extensions_enable_height": "0"
+      }
+    }
+  }
+}

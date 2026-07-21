@@ -199,73 +199,131 @@ curl -s http://localhost:26657/status | jq '.result.sync_info | {latest_block_he
 
 ---
 
-## 5. Join a live network (full or archive node)
+## 5. Join a live network (full node)
 
-To sync a node against **mainnet** or **testnet** without being a validator, peer with the public **archive node**, which is what Atoshi exposes for outside P2P.
+To sync a node against **testnet** (or later mainnet) without being a validator, peer with the public **archive node** — that is what Atoshi exposes for outside P2P.
 
 > **Our own validator nodes are not open for direct peering.** External nodes connect through the archive node:
-> - Mainnet: `archive.atoshi.org`
-> - Testnet: `tm-rpc-testnet.atoshi.org`
+>
+> | Network | Archive P2P endpoint | Node ID |
+> |---|---|---|
+> | Testnet | `tm-rpc-testnet.atoshi.org:26656` | `186ccd0611db23ef434454a8c03437b932abb139` |
+> | Mainnet | `archive.atoshi.org:26656` | _(reserved — published at mainnet launch)_ |
 
-### 5.1 Init with the right chain id and genesis
+### 5.1 Hardware requirements
+
+| Role | CPU | RAM | Disk | Network |
+|---|---|---|---|---|
+| Testnet full node / validator | 4 vCPU | 16 GB | 200 GB NVMe SSD | 100 Mbps, static-ish IP |
+| Mainnet validator (recommended) | 8 vCPU | 32 GB | 500 GB+ NVMe SSD (grows) | 1 Gbps |
+| Archive node (`pruning=nothing`) | 8 vCPU | 32 GB | 1 TB+ NVMe SSD | 1 Gbps |
+
+NVMe SSD is not optional — the chain commits blocks every ~3.5 s and HDD/network storage cannot keep up with state commits. Use ext4/xfs, not networked block storage where possible.
+
+### 5.2 Init and install the network genesis
 
 ```bash
-CHAINID="atoshi_88288-1"          # testnet; use atoshi_88188-1 for mainnet
-HOMEDIR="/data/atoshi/fullnode"
+CHAINID="atoshi_88288-1"            # testnet
+HOMEDIR="/data/atoshi/node"
+atoshid init "my-node" -o --chain-id "$CHAINID" --home "$HOMEDIR"
 
-atoshid init "my-fullnode" -o --chain-id "$CHAINID" --home "$HOMEDIR"
+# Download the canonical genesis and verify its checksum (do NOT trust an
+# unverified genesis — a wrong genesis silently forks you off the network).
+curl -sL "https://raw.githubusercontent.com/ATOSHI-ORG/atoshi-docs/main/network/testnet/genesis.json" \
+  -o "$HOMEDIR/config/genesis.json"
 
-# Replace the freshly-generated genesis with the network's genesis.
-# Fetch it from the CometBFT RPC of the network you are joining:
-curl -s "https://rpc-testnet.atoshi.org/rpc/genesis" | jq '.result.genesis' > "$HOMEDIR/config/genesis.json"
+echo "fadb200084370a0af8adb9d16bfdf7c490f2a8be9a01ee6215bc75e28048f48a  $HOMEDIR/config/genesis.json" | shasum -a 256 -c
+#   → must print: …genesis.json: OK
+
 atoshid validate-genesis --home "$HOMEDIR"
 ```
 
-(If the genesis is too large to return in one RPC call, obtain it from the operator or the archive node's `config/genesis.json`.)
+### 5.3 Wire up the peer and gas price
 
-### 5.2 Point at the archive node for peers
-
-Get the archive node's P2P id from the operator, or from its CometBFT RPC `status` if exposed (`.result.node_info.id`). Then set it as a persistent peer:
+Set the archive node as a persistent peer in `config.toml`, and the minimum gas price in `app.toml`:
 
 ```toml
-# $HOMEDIR/config/config.toml
-persistent_peers = "<archive-node-id>@archive.atoshi.org:26656"     # mainnet
-# testnet:
-# persistent_peers = "<archive-node-id>@tm-rpc-testnet.atoshi.org:26656"
+# $HOMEDIR/config/config.toml   → [p2p]
+persistent_peers = "186ccd0611db23ef434454a8c03437b932abb139@tm-rpc-testnet.atoshi.org:26656"
+# (No seed node is required on this network — the archive node above is enough
+#  for peer discovery. A "seed" only crawls and hands out peer addresses then
+#  disconnects; "persistent_peers" are nodes you stay connected to.)
 ```
 
-### 5.3 (Optional) State sync for a fast start
+```toml
+# $HOMEDIR/config/app.toml
+minimum-gas-prices = "1000000000aatos"   # 1 gwei — the network floor
+pruning = "default"                       # validators: "default"; archive nodes: "nothing"
+```
 
-If the archive node has state-sync snapshots enabled, set `[statesync] enable = true`, `rpc_servers` to the archive RPC (two entries required — you can list the same URL twice), and a recent `trust_height` / `trust_hash` (read them from the archive RPC `/block`). Otherwise the node replays from block 1 (slower but always works).
+> **State sync / snapshots.** The network does not publish snapshots yet (it launched recently). For now a joining node **replays from block 1** — slower but always correct. When snapshots are added, this section will document `[statesync]` (`enable`, `rpc_servers`, `trust_height`, `trust_hash`).
 
 ### 5.4 Start and watch it catch up
 
 ```bash
 atoshid start --home "$HOMEDIR" --chain-id "$CHAINID" \
-  --minimum-gas-prices=0.0001aatos \
+  --minimum-gas-prices=1000000000aatos \
   --json-rpc.api eth,txpool,personal,net,debug,web3
 
-curl -s http://localhost:26657/status | jq '.result.sync_info.catching_up'   # false when synced
+# catching_up flips to false once synced:
+curl -s http://localhost:26657/status | jq '.result.sync_info | {latest_block_height, catching_up}'
+```
+
+Run it under **systemd** so it restarts on crash/reboot:
+
+```ini
+# /etc/systemd/system/atoshid.service
+[Unit]
+Description=Atoshi node
+After=network-online.target
+
+[Service]
+User=atoshi
+ExecStart=/usr/local/bin/atoshid start --home /data/atoshi/node \
+  --chain-id atoshi_88288-1 --minimum-gas-prices=1000000000aatos \
+  --json-rpc.api eth,txpool,personal,net,debug,web3
+Restart=on-failure
+RestartSec=3
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload && sudo systemctl enable --now atoshid
+journalctl -u atoshid -f
 ```
 
 A synced full node gives you your own private REST / CometBFT RPC / EVM JSON-RPC endpoints — useful for wallets, indexers, or dApps that should not depend on the public gateway.
 
 ---
 
-## 6. Become a validator
+## 6. Become a validator and join the active set
 
-> **Current policy:** Atoshi's active validator set is **not open** for external registration on either mainnet or testnet today. Anyone can run a **full / archive node** (§5) and sync, but joining the active set requires coordination with the core team. The steps below are the standard mechanism and will apply when validator onboarding opens.
+> **Current policy:** the active validator set is **coordinated with the core team**. Anyone can run a full node (§5); to enter the active set on testnet, sync a node, fund your key, then run `create-validator` below and let the team know. Mainnet onboarding opens at launch.
 
-Once you have a fully-synced node (§5) and a funded key:
+### 6.1 Prerequisites
+
+- A **fully-synced** node from §5 (`catching_up: false`).
+- A funded key. On testnet, request test ATOS from the team/faucet. You need enough to self-delegate plus a little for the tx fee.
 
 ```bash
-# 1. get your validator's consensus public key (from your synced node)
-atoshid comet show-validator --home "$HOMEDIR"    # prints the {"@type":"/cosmos.crypto.ed25519.PubKey",...} JSON
+atoshid keys add validator --keyring-backend file --algo eth_secp256k1 --home "$HOMEDIR"
+# fund the printed address, then confirm:
+atoshid query bank balances "$(atoshid keys show validator -a --keyring-backend file --home "$HOMEDIR")" --home "$HOMEDIR"
+```
 
-# 2. write a validator spec
+### 6.2 Submit `create-validator`
+
+```bash
+# 1. your node's consensus pubkey
+atoshid comet show-validator --home "$HOMEDIR"     # → {"@type":"/cosmos.crypto.ed25519.PubKey","key":"..."}
+
+# 2. validator spec (paste the pubkey from step 1 into "pubkey")
 cat > validator.json <<'JSON'
 {
-  "pubkey": <output of show-validator>,
+  "pubkey": {"@type":"/cosmos.crypto.ed25519.PubKey","key":"<PASTE>"},
   "amount": "1000000000000000000000aatos",
   "moniker": "my-validator",
   "identity": "",
@@ -279,21 +337,32 @@ cat > validator.json <<'JSON'
 }
 JSON
 
-# 3. submit the create-validator tx (signed by your funded key)
+# 3. broadcast (signed by your funded key)
 atoshid tx staking create-validator validator.json \
-  --from <your-key> \
+  --from validator \
   --chain-id "$CHAINID" \
   --keyring-backend file --home "$HOMEDIR" \
   --gas 500000 --gas-prices 1000000000aatos -y
 ```
 
-Verify:
+`amount` is the self-delegation (`1000000000000000000000aatos` = 1,000 ATOS here — set what you intend to bond). `commission-*` follow the network's staking params (default 10%, 5% suggested minimum; see [Staking](../modules/08-staking.md)).
+
+### 6.3 Verify and stay live
 
 ```bash
-atoshid query staking validators --home "$HOMEDIR" -o json | jq '.validators[] | {moniker: .description.moniker, tokens, status}'
+# your validator should appear (BONDED once in the active set)
+atoshid query staking validators --home "$HOMEDIR" -o json \
+  | jq '.validators[] | {moniker: .description.moniker, tokens, status, jailed}'
 ```
 
-Your node must stay online and signing; if it misses too many blocks it will be jailed (recover with `atoshid tx slashing unjail`). Validator economics — commission, rewards, slashing — are covered in [Staking](../modules/08-staking.md) and [Block rewards](../economics/04-block-rewards.md).
+Keep the node online and signing. If it misses too many blocks in the signing window it is **jailed**; recover after the downtime window with:
+
+```bash
+atoshid tx slashing unjail --from validator --chain-id "$CHAINID" \
+  --keyring-backend file --home "$HOMEDIR" --gas 300000 --gas-prices 1000000000aatos -y
+```
+
+Back up `config/priv_validator_key.json` and `config/node_key.json` offline — losing the former means losing the validator identity; running two nodes with the **same** `priv_validator_key.json` will double-sign and get you slashed. Validator economics (commission, the 20% immediate / 80% locked reward split, slashing) are in [Staking](../modules/08-staking.md) and [Block rewards](../economics/04-block-rewards.md).
 
 ---
 
@@ -306,4 +375,4 @@ Your node must stay online and signing; if it misses too many blocks it will be 
 
 ---
 
-*Last reviewed: 2026-07-11*
+*Last reviewed: 2026-07-22*
