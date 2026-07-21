@@ -166,7 +166,7 @@ The coordinator now has the final `config/genesis.json`. **Distribute this exact
 Get each node's P2P id:
 
 ```bash
-atoshid comet show-node-id --home "$HOMEDIR"     # prints <node-id>
+atoshid tendermint show-node-id --home "$HOMEDIR"     # prints <node-id>
 ```
 
 The full peer address is `<node-id>@<host-ip>:26656`. On every node, set the others as persistent peers in `config/config.toml`:
@@ -318,7 +318,7 @@ atoshid query bank balances "$(atoshid keys show validator -a --keyring-backend 
 
 ```bash
 # 1. your node's consensus pubkey
-atoshid comet show-validator --home "$HOMEDIR"     # → {"@type":"/cosmos.crypto.ed25519.PubKey","key":"..."}
+atoshid tendermint show-validator --home "$HOMEDIR"     # → {"@type":"/cosmos.crypto.ed25519.PubKey","key":"..."}
 
 # 2. validator spec (paste the pubkey from step 1 into "pubkey")
 cat > validator.json <<'JSON'

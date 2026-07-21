@@ -94,6 +94,8 @@ plugins:
             ZK circuits: ZK 电路
             Energy settlement: 能量结算
             Reference: 参考
+            CLI reference: CLI 命令参考
+            Releases & versioning: 发布与版本
             API guide: API 指南
             Wallet integration: 钱包集成
             Node operation: 节点运维
@@ -132,6 +134,8 @@ nav:
       - ZK circuits: privacy/03-zk-circuits.md
       - Energy settlement: privacy/04-energy-settlement.md
   - Reference:
+      - CLI reference: reference/cli.md
+      - Releases & versioning: reference/releases.md
       - API guide: reference/api-guide.md
       - Wallet integration: reference/wallet-integration.md
       - Node operation: reference/node-operation.md

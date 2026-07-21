@@ -166,7 +166,7 @@ atoshid validate-genesis --home "$HOMEDIR"
 获取每个节点的 P2P id:
 
 ```bash
-atoshid comet show-node-id --home "$HOMEDIR"     # prints <node-id>
+atoshid tendermint show-node-id --home "$HOMEDIR"     # prints <node-id>
 ```
 
 完整的对等节点地址为 `<node-id>@<host-ip>:26656`。在每个节点上,把其他节点设为 `config/config.toml` 中的持久对等节点(persistent peers):
@@ -260,7 +260,7 @@ curl -s http://localhost:26657/status | jq '.result.sync_info.catching_up'   # f
 
 ```bash
 # 1. get your validator's consensus public key (from your synced node)
-atoshid comet show-validator --home "$HOMEDIR"    # prints the {"@type":"/cosmos.crypto.ed25519.PubKey",...} JSON
+atoshid tendermint show-validator --home "$HOMEDIR"    # prints the {"@type":"/cosmos.crypto.ed25519.PubKey",...} JSON
 
 # 2. write a validator spec
 cat > validator.json <<'JSON'

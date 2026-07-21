@@ -49,6 +49,8 @@ If you are looking for:
 - [Energy settlement for private txs](./privacy/04-energy-settlement.md)
 
 ### Reference
+- [CLI reference (`atoshid`)](./reference/cli.md)
+- [Releases and versioning](./reference/releases.md)
 - [REST + JSON-RPC API reference](./reference/api-guide.md)
 - [Wallet integration handbook](./reference/wallet-integration.md)
 - [Node operation guide](./reference/node-operation.md)
